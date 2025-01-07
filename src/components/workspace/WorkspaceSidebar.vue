@@ -3,9 +3,6 @@
     <!-- Workspace Header -->
     <div class="workspace-header">
       <h1 class="workspace-name">{{ workspace.name }}</h1>
-      <button class="new-message-button">
-        <span class="icon">✏️</span>
-      </button>
     </div>
 
     <!-- Search Bar -->

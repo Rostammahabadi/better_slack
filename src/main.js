@@ -41,16 +41,12 @@ const initAuth0 = async () => {
 
     // For all other routes, check authentication
     const isAuthenticated = await auth0.isAuthenticated();
-    const storedToken = localStorage.getItem('auth_token');
     
-    if (isAuthenticated && storedToken) {
+    if (isAuthenticated) {
       try {
-        // Get a fresh token
-        const token = await auth0.getTokenSilently({
-          timeoutInSeconds: 60,
-          cacheMode: 'on'
-        });
-        
+        // Get the token
+        const token = await auth0.getTokenSilently();
+
         // Initialize auth state with token
         await store.dispatch('auth/initializeAuth', { auth0, token });
         
@@ -58,20 +54,15 @@ const initAuth0 = async () => {
         app.mount('#app');
       } catch (error) {
         console.error('Token refresh error:', error);
-        // Clear stored auth state
-        store.dispatch('auth/logout');
         // If token refresh fails, redirect to login
         window.location.pathname = '/login';
       }
     } else {
-      // If not authenticated or no stored token, redirect to login
-      store.dispatch('auth/logout');
+      // If not authenticated and not on login/callback, redirect to login
       window.location.pathname = '/login';
     }
   } catch (error) {
     console.error('Auth check error:', error);
-    // Clear stored auth state
-    store.dispatch('auth/logout');
     // On error, redirect to login
     window.location.pathname = '/login';
   }
@@ -82,13 +73,11 @@ const search = window.location.search;
 if (search.includes("error=")) {
   // Only redirect on actual errors
   console.error('Auth0 error:', search);
-  store.dispatch('auth/logout');
   window.location.pathname = '/login';
 } else {
   // Initialize auth
   initAuth0().catch(e => {
     console.error('Failed to initialize auth:', e);
-    store.dispatch('auth/logout');
     window.location.pathname = '/login';
   });
 }

@@ -44,10 +44,13 @@ const route = useRoute();
 const router = useRouter();
 const store = useStore();
 const newMessage = ref('');
-
+// const token = store.getters['auth/token'];
+// const socket = io(import.meta.env.VITE_API_URL, { auth: { token: token } });
+// socket.on('connect', () => console.log('Connected:', socket.id));
 // Computed properties from store
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
+
 const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
 const currentMessages = computed(() => {
   if (currentChannel.value) {
@@ -110,7 +113,7 @@ onMounted(async () => {
 
 // Watch for channel changes to update URL and load messages
 watch(currentChannel, async (newChannel, oldChannel) => {
-  if (newChannel && newChannel.id !== oldChannel?.id) {
+  if (newChannel && newChannel.id !== oldChannel?.id && oldChannel !== null) {
     // Update URL when channel changes
     router.push({
       name: 'channel',
@@ -119,7 +122,6 @@ watch(currentChannel, async (newChannel, oldChannel) => {
         channelId: newChannel.id
       }
     });
-    
     // Fetch messages for the new channel
     await store.dispatch('messages/fetchMessages', {
       channelId: newChannel.id,

@@ -34,6 +34,25 @@ const mutations = {
     if (message) {
       message.reactions = message.reactions.filter(r => r.emoji !== reaction);
     }
+  },
+  RECEIVE_MESSAGE(state, { channelId, message }) {
+    if (!state.messagesByChannel[channelId]) {
+      state.messagesByChannel[channelId] = [];
+    }
+    state.messagesByChannel[channelId].push(message);
+  },
+  UPDATE_MESSAGE(state, { channelId, message }) {
+    if (state.messagesByChannel[channelId]) {
+      const index = state.messagesByChannel[channelId].findIndex(msg => msg._id === message._id);
+      if (index !== -1) {
+        state.messagesByChannel[channelId].splice(index, 1, message);
+      }
+    }
+  },
+  DELETE_MESSAGE(state, { channelId, messageId }) {
+    if (state.messagesByChannel[channelId]) {
+      state.messagesByChannel[channelId] = state.messagesByChannel[channelId].filter(msg => msg._id !== messageId);
+    }
   }
 };
 
@@ -133,6 +152,27 @@ const actions = {
 
     if (!response.ok) {
       throw new Error('Failed to remove reaction');
+    }
+  },
+
+  receiveMessage({ commit, rootState }, message) {
+    const channelId = message.channelId;
+    if (channelId === rootState.channels.currentChannel?._id) {
+      commit('RECEIVE_MESSAGE', { channelId, message });
+    }
+  },
+
+  updateMessage({ commit, rootState }, message) {
+    const channelId = message.channelId;
+    if (channelId === rootState.channels.currentChannel?._id) {
+      commit('UPDATE_MESSAGE', { channelId, message });
+    }
+  },
+
+  deleteMessage({ commit, rootState }, messageId) {
+    const channelId = rootState.channels.currentChannel?._id;
+    if (channelId) {
+      commit('DELETE_MESSAGE', { channelId, messageId });
     }
   }
 };

@@ -4,6 +4,7 @@ import channels from './modules/channels';
 import messages from './modules/messages';
 import auth from './modules/auth';
 import invites from './modules/invites';
+import socket from './modules/socket';
 
 export default createStore({
   modules: {
@@ -11,6 +12,7 @@ export default createStore({
     channels,
     messages,
     auth,
-    invites
+    invites,
+    socket
   }
 }); 
