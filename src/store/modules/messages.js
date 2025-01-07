@@ -22,6 +22,18 @@ const mutations = {
   },
   SET_ERROR(state, error) {
     state.error = error;
+  },
+  ADD_REACTION(state, { messageId, reaction, currentChannel }) {
+    const message = state.messagesByChannel[currentChannel].find(msg => msg._id === messageId);
+    if (message) {
+      message.reactions.push(reaction);
+    }
+  },
+  REMOVE_REACTION(state, { messageId, reaction, currentChannel }) {
+    const message = state.messagesByChannel[currentChannel].find(msg => msg._id === messageId);
+    if (message) {
+      message.reactions = message.reactions.filter(r => r.emoji !== reaction);
+    }
   }
 };
 
@@ -83,6 +95,44 @@ const actions = {
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
+    }
+  },
+
+  async addReaction({ commit }, { messageId, reaction, token, currentChannel }) {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}/reactions`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({emoji: reaction})
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to add reaction');
+    }
+
+    const addedReaction = await response.json();
+    commit('ADD_REACTION', { messageId, reaction: addedReaction, currentChannel });
+  },
+
+  async removeReaction({ commit }, { messageId, reactionId, token, currentChannel }) {
+    commit('REMOVE_REACTION', { messageId, reactionId, currentChannel });
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}/reactions/${reactionId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to remove reaction');
     }
   }
 };

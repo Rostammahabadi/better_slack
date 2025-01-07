@@ -23,7 +23,7 @@
             :key="reaction.id" 
             class="reaction"
             :class="{ 'reaction-active': hasUserReacted(reaction) }"
-            @click="handleAddReaction(reaction.emoji)"
+            @click="handleAddReaction(reaction.emoji, message._id)"
           >
             {{ reaction.emoji }} {{ reaction.count }}
           </button>
@@ -32,7 +32,7 @@
         <!-- Message Hover Menu -->
         <MessageHoverMenu
           v-if="showHoverMenu && hoveredMessage?._id === message._id"
-          @add-reaction="handleAddReaction"
+          @add-reaction="(emoji) => handleAddReaction(emoji, message._id)"
           @reply="handleReply"
           @menu-hover="cancelHideMenu"
           @menu-leave="startHideMenu"
@@ -99,40 +99,28 @@ const cancelHideMenu = () => {
   }
 };
 
-const handleAddReaction = (emoji) => {
+const handleAddReaction = async (emoji, messageId) => {
   if (hoveredMessage.value) {
     const message = hoveredMessage.value;
-    const currentUserId = store.state.auth.user.id;
-    
-    // Find if this reaction already exists
-    const existingReaction = message.reactions?.find(r => r.emoji === emoji);
-    
-    if (existingReaction) {
-      // If user already reacted, remove their reaction
-      if (existingReaction.users.includes(currentUserId)) {
-        existingReaction.count--;
-        existingReaction.users = existingReaction.users.filter(id => id !== currentUserId);
-        
-        // Remove the reaction entirely if no users left
-        if (existingReaction.count === 0) {
-          message.reactions = message.reactions.filter(r => r.id !== existingReaction.id);
-        }
-      } else {
-        // Add user's reaction
-        existingReaction.count++;
-        existingReaction.users.push(currentUserId);
-      }
+    const currentUserId = store.state.auth.user.user._id;
+    const token = store.state.auth.token;
+    const currentChannel = store.state.channels.currentChannel._id;
+
+    // Check if the current user has already reacted with this emoji
+    const userReactionIndex = message.reactions.findIndex(
+      r => r.user === currentUserId && r.emoji === emoji
+    );
+    if (userReactionIndex !== -1) {
+      await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: message.reactions[userReactionIndex]._id, token, currentChannel });
+      message.reactions.splice(userReactionIndex, 1);
     } else {
-      // Create new reaction
-      if (!message.reactions) {
-        message.reactions = [];
-      }
-      message.reactions.push({
-        id: Date.now(),
-        emoji: emoji,
-        count: 1,
-        users: [currentUserId]
-      });
+      // User has not reacted with this emoji, add the reaction
+      await store.dispatch('messages/addReaction', { messageId: message._id, reaction: emoji, token, currentChannel });
+    //   message.reactions.push({
+    //     id: Date.now(),
+    //     emoji: emoji,
+    //     user: { _id: currentUserId }
+    //   });
     }
   }
 };
