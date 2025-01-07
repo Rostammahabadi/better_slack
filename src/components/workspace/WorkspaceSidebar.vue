@@ -13,14 +13,6 @@
       <input type="text" placeholder="Search" />
     </div>
 
-    <!-- Huddles Section -->
-    <div class="sidebar-section">
-      <div class="section-item">
-        <span class="icon">🎧</span>
-        <span>Huddles</span>
-      </div>
-    </div>
-
     <!-- Channels Section -->
     <div class="sidebar-section">
       <div class="section-header">

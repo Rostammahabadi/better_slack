@@ -1,5 +1,11 @@
 <template>
-  <div class="emoji-picker" v-if="show" @click.stop>
+  <div 
+    class="emoji-picker" 
+    v-if="show" 
+    @click.stop
+    ref="pickerRef"
+    :style="pickerStyle"
+  >
     <div class="emoji-picker-header">
       <div class="search-container">
         <input 
@@ -63,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue';
 
 const props = defineProps({
   show: {
@@ -72,7 +78,65 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['select', 'close']);
+const emit = defineEmits(['select', 'close', 'position-updated']);
+const pickerRef = ref(null);
+
+// Calculate position based on screen space
+const calculatePosition = () => {
+  if (!pickerRef.value) return;
+  
+  const picker = pickerRef.value;
+  const pickerRect = picker.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  // Initialize position object
+  const position = {
+    top: '0px',
+    left: '0px',
+    transform: 'none'
+  };
+
+  // Check if picker would go off the right edge
+  if (pickerRect.right > viewportWidth) {
+    position.left = 'auto';
+    position.right = '0px';
+  }
+
+  // Check if picker would go off the bottom edge
+  if (pickerRect.bottom > viewportHeight) {
+    position.top = 'auto';
+    position.bottom = '100%';
+  }
+
+  // Emit the calculated position for parent components to adjust if needed
+  emit('position-updated', position);
+  return position;
+};
+
+const pickerStyle = computed(() => {
+  if (!pickerRef.value) return {};
+  return calculatePosition();
+});
+
+// Recalculate position when picker becomes visible
+watch(() => props.show, (newValue) => {
+  if (newValue) {
+    // Use nextTick to ensure DOM is updated
+    nextTick(() => {
+      calculatePosition();
+    });
+  }
+});
+
+// Recalculate on window resize
+onMounted(() => {
+  window.addEventListener('resize', calculatePosition);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', calculatePosition);
+});
 
 const searchQuery = ref('');
 const activeCategory = ref('smileys');
@@ -115,8 +179,6 @@ const selectEmoji = (emoji) => {
 <style scoped>
 .emoji-picker {
   position: absolute;
-  top: 0;
-  left: 0;
   width: 350px;
   background-color: #1A1D21;
   border: 1px solid #4B4B4B;

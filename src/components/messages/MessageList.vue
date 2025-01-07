@@ -18,11 +18,15 @@
           {{ message.content }}
         </div>
         <div v-if="message.reactions?.length" class="message-reactions">
-          <div v-for="reaction in message.reactions" 
-               :key="reaction.id" 
-               class="reaction">
+          <button 
+            v-for="reaction in message.reactions" 
+            :key="reaction.id" 
+            class="reaction"
+            :class="{ 'reaction-active': hasUserReacted(reaction) }"
+            @click="handleAddReaction(reaction.emoji)"
+          >
             {{ reaction.emoji }} {{ reaction.count }}
-          </div>
+          </button>
         </div>
         
         <!-- Message Hover Menu -->
@@ -97,13 +101,29 @@ const cancelHideMenu = () => {
 
 const handleAddReaction = (emoji) => {
   if (hoveredMessage.value) {
-    // Add the reaction to the message
     const message = hoveredMessage.value;
+    const currentUserId = store.state.auth.user.id;
+    
+    // Find if this reaction already exists
     const existingReaction = message.reactions?.find(r => r.emoji === emoji);
     
     if (existingReaction) {
-      existingReaction.count++;
+      // If user already reacted, remove their reaction
+      if (existingReaction.users.includes(currentUserId)) {
+        existingReaction.count--;
+        existingReaction.users = existingReaction.users.filter(id => id !== currentUserId);
+        
+        // Remove the reaction entirely if no users left
+        if (existingReaction.count === 0) {
+          message.reactions = message.reactions.filter(r => r.id !== existingReaction.id);
+        }
+      } else {
+        // Add user's reaction
+        existingReaction.count++;
+        existingReaction.users.push(currentUserId);
+      }
     } else {
+      // Create new reaction
       if (!message.reactions) {
         message.reactions = [];
       }
@@ -111,7 +131,7 @@ const handleAddReaction = (emoji) => {
         id: Date.now(),
         emoji: emoji,
         count: 1,
-        users: [store.state.auth.user.id] // Add the current user's ID
+        users: [currentUserId]
       });
     }
   }
@@ -122,6 +142,11 @@ const handleReply = () => {
     // TODO: Implement reply logic
     console.log('Reply to message:', hoveredMessage.value.id);
   }
+};
+
+const hasUserReacted = (reaction) => {
+  const currentUserId = store.state.auth.user.id;
+  return reaction.users?.includes(currentUserId);
 };
 </script>
 
@@ -196,6 +221,17 @@ const handleReply = () => {
 .reaction:hover {
   border-color: #ABABAD;
   background-color: #27242C;
+}
+
+.reaction-active {
+  background-color: rgba(18, 100, 163, 0.1);
+  border-color: #1264A3;
+  color: #FFFFFF;
+}
+
+.reaction-active:hover {
+  background-color: rgba(18, 100, 163, 0.2);
+  border-color: #1264A3;
 }
 
 .no-messages {

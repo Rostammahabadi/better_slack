@@ -3,9 +3,10 @@
     class="hover-menu" 
     @mouseover="$emit('menu-hover')"
     @mouseleave="$emit('menu-leave')"
+    ref="menuRef"
   >
     <div class="menu-buttons">
-      <button class="menu-button" @click="showEmojiPicker = true">
+      <button class="menu-button" @click="toggleEmojiPicker">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M15.5 11C16.3284 11 17 10.3284 17 9.5C17 8.67157 16.3284 8 15.5 8C14.6716 8 14 8.67157 14 9.5C14 10.3284 14.6716 11 15.5 11Z" fill="currentColor"/>
           <path d="M8.5 11C9.32843 11 10 10.3284 10 9.5C10 8.67157 9.32843 8 8.5 8C7.67157 8 7 8.67157 7 9.5C7 10.3284 7.67157 11 8.5 11Z" fill="currentColor"/>
@@ -28,6 +29,7 @@
       :show="showEmojiPicker"
       @select="handleEmojiSelect"
       @close="showEmojiPicker = false"
+      @position-updated="handlePickerPosition"
     />
   </div>
 </template>
@@ -38,6 +40,7 @@ import EmojiPicker from './EmojiPicker.vue';
 
 const emit = defineEmits(['add-reaction', 'reply', 'menu-hover', 'menu-leave']);
 const showEmojiPicker = ref(false);
+const menuRef = ref(null);
 
 // Handle clicking outside to close emoji picker
 const handleClickOutside = (event) => {
@@ -47,6 +50,18 @@ const handleClickOutside = (event) => {
     if (!picker && !button) {
       showEmojiPicker.value = false;
     }
+  }
+};
+
+const toggleEmojiPicker = () => {
+  showEmojiPicker.value = !showEmojiPicker.value;
+};
+
+const handlePickerPosition = (position) => {
+  // If we need to adjust the menu position based on picker position
+  if (position.bottom) {
+    menuRef.value.style.bottom = 'auto';
+    menuRef.value.style.bottom = '0px';
   }
 };
 

@@ -2,18 +2,19 @@
   <div class="header">
     <div class="left-section">
       <div class="navigation">
-        <button class="nav-button">◀</button>
-        <button class="nav-button">▶</button>
-        <button class="nav-button">🕒</button>
+        <button class="nav-button" title="Back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15.5 19L8.5 12L15.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="nav-button" title="Forward">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8.5 19L15.5 12L8.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
       <div class="search">
         <input type="text" placeholder="Search testing123" />
-      </div>
-    </div>
-    <div class="right-section">
-      <div class="huddle-controls">
-        <span class="badge">1</span>
-        <button class="huddle-button">🎧 Huddle</button>
       </div>
     </div>
   </div>
@@ -47,20 +48,35 @@ defineProps({
 
 .navigation {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .nav-button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: #ABABAD;
   cursor: pointer;
-  padding: 4px 8px;
   border-radius: 4px;
+  transition: all 0.1s ease;
 }
 
 .nav-button:hover {
   background-color: #27242C;
+  color: #FFFFFF;
+}
+
+.nav-button:active {
+  transform: scale(0.95);
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .search {
@@ -74,6 +90,17 @@ defineProps({
   border: 1px solid #565856;
   background-color: #363636;
   color: #FFFFFF;
+  font-size: 13px;
+}
+
+.search input:focus {
+  outline: none;
+  border-color: #1264A3;
+  box-shadow: 0 0 0 1px #1264A3;
+}
+
+.search input::placeholder {
+  color: #ABABAD;
 }
 
 .right-section {
