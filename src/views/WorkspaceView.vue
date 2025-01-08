@@ -13,7 +13,6 @@
             <span class="prefix">{{ currentChannel ? '#' : '@' }}</span>
             {{ currentChannel?.name || currentDirectMessage?.user.displayName || currentWorkspace?.name }}
           </h2>
-          <button class="add-bookmark">📌 Add a bookmark</button>
         </div>
         <div class="channel-description">
           {{ currentChannel?.description || 
@@ -33,7 +32,7 @@
 
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
@@ -44,9 +43,6 @@ const route = useRoute();
 const router = useRouter();
 const store = useStore();
 const newMessage = ref('');
-// const token = store.getters['auth/token'];
-// const socket = io(import.meta.env.VITE_API_URL, { auth: { token: token } });
-// socket.on('connect', () => console.log('Connected:', socket.id));
 // Computed properties from store
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
@@ -72,6 +68,54 @@ const error = computed(() =>
 );
 const token = computed(() => store.getters['auth/token']);
 const currentUser = computed(() => store.getters['auth/currentUser']);
+import socket from '../services/socketService';
+// Watch for channel changes to join/leave socket rooms
+watch(currentChannel, (newChannel, oldChannel) => {
+  if (socket.connected) {
+    console.log('Channel changed, socket state:', {
+      connected: socket.connected,
+      id: socket.id
+    });
+    
+    if (oldChannel) {
+      console.log('Leaving channel:', oldChannel._id);
+      socket.emit('leave-channel', oldChannel._id);
+    }
+    if (newChannel) {
+      console.log('Joining channel:', newChannel._id);
+      socket.emit('join-channel', newChannel._id);
+    }
+  } else {
+    console.log('Socket not connected when channel changed');
+  }
+});
+
+
+
+// Set up socket listeners when component mounts
+onMounted(() => {
+  
+  // If socket disconnects and reconnects, rejoin the current channel
+  socket.on('connect', () => {
+    if (currentChannel.value) {
+      console.log('Rejoining channel after reconnect:', currentChannel.value._id);
+      socket.emit('join-channel', currentChannel.value._id);
+    }
+  });
+});
+
+// Clean up socket listeners when component unmounts
+onUnmounted(() => {
+  socket.off('new-message');
+  socket.off('message-updated');
+  socket.off('reaction-added');
+  socket.off('reaction-removed');
+  socket.off('connect');
+  
+  if (currentChannel.value) {
+    socket.emit('leave-channel', currentChannel.value._id);
+  }
+});
 
 // Initialize workspace data
 onMounted(async () => {
@@ -130,27 +174,6 @@ watch(currentChannel, async (newChannel, oldChannel) => {
   }
 });
 
-// Watch for route changes to handle direct navigation to channels
-watch(
-  () => route.params.channelId,
-  async (newChannelId, oldChannelId) => {
-    if (newChannelId && newChannelId !== oldChannelId) {
-      const channel = store.getters['channels/getChannelById'](newChannelId);
-      if (channel) {
-        await store.dispatch('channels/setCurrentChannel', {
-          channel,
-          token: token.value
-        });
-      }
-    }
-  }
-);
-
-// Helper function to format timestamps
-const formatTimestamp = (timestamp) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-};
 
 // Send message function
 const sendMessage = async (messageData) => {

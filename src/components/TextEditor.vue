@@ -14,7 +14,7 @@
       <textarea
         v-model="messageText"
         rows="3"
-        placeholder="Start a new message"
+        :placeholder="message ? 'Edit your message' : 'Start a new message'"
         class="message-input"
         @keydown.enter.prevent="handleSend"
         @keydown.enter.shift.exact="messageText += '\n'"
@@ -38,7 +38,7 @@
             @click="handleSend"
             :disabled="!messageText.trim()"
           >
-            Send
+            {{ message ? 'Save Changes' : 'Send' }}
           </button>
         </div>
       </div>
@@ -53,16 +53,22 @@ import {
   Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, 
   Code, Quote, Plus, Type, Smile, AtSign, Image, Mic, PenTool
 } from 'lucide-vue-next';
-
+const props = defineProps({
+  message: {
+    type: Object,
+    required: false,
+    default: null
+  }
+});
 const store = useStore();
-const messageText = ref('');
-const attachments = ref([]);
-const replyToThread = ref(null);
+const messageText = ref(props.message?.content || '');
+const attachments = ref(props.message?.attachments || []);
+const replyToThread = ref(props.message?.threadId || null);
 
 const topRowIcons = [Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, Code, Quote];
 const bottomRowIcons = [Plus, Type, Smile, AtSign, Image, Mic, PenTool];
 
-const emit = defineEmits(['send-message']);
+const emit = defineEmits(['send-message', 'edit-message']);
 
 const handleSend = () => {
   if (!messageText.value.trim()) return;
@@ -77,12 +83,17 @@ const handleSend = () => {
     }))
   };
 
-  emit('send-message', messageData);
-  
-  // Reset the form
-  messageText.value = '';
-  attachments.value = [];
-  replyToThread.value = null;
+  if (props.message) {
+    // If we have a message prop, we're editing
+    emit('send-message', messageData);
+  } else {
+    // If no message prop, we're sending a new message
+    emit('send-message', messageData);
+    // Only reset form for new messages
+    messageText.value = '';
+    attachments.value = [];
+    replyToThread.value = null;
+  }
 };
 
 const handlePaste = async (event) => {
@@ -167,7 +178,6 @@ const handleFormatClick = (formatType) => {
       break;
   }
 };
-
 const wrapText = (start, end, prefix, suffix) => {
   const beforeText = messageText.value.substring(0, start);
   const selectedText = messageText.value.substring(start, end);

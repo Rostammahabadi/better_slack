@@ -162,8 +162,24 @@ const actions = {
     }
   },
 
-  updateMessage({ commit, rootState }, message) {
-    const channelId = message.channelId;
+  async updateMessage({ commit, rootState }, message) {
+    const messageId = message.messageId;
+    const channelId = message.currentChannel;
+    const token = message.token;
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ _id: messageId, content: message.content })
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to update message');
+    }
     if (channelId === rootState.channels.currentChannel?._id) {
       commit('UPDATE_MESSAGE', { channelId, message });
     }

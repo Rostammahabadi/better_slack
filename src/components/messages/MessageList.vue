@@ -14,7 +14,13 @@
           <span class="username">{{ message?.user?.displayName }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
         </div>
-        <div class="message-text">
+        <div v-if="editingMessageId === message._id" class="message-edit">
+          <TextEditor 
+            :message="message"
+            @send-message="handleEditComplete"
+          />
+        </div>
+        <div v-else class="message-text">
           {{ message.content }}
         </div>
         <div v-if="message.reactions?.length" class="message-reactions">
@@ -36,6 +42,7 @@
           @reply="handleReply"
           @menu-hover="cancelHideMenu"
           @menu-leave="startHideMenu"
+          @edit="() => handleEdit(message)"
         />
       </div>
     </div>
@@ -48,11 +55,13 @@
 <script setup>
 import { defineProps, ref, watch } from 'vue';
 import MessageHoverMenu from './MessageHoverMenu.vue';
+import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
-
+const emit = defineEmits([ 'edit-message']);
 const messageListRef = ref(null);
 const hoveredMessage = ref(null);
 const showHoverMenu = ref(false);
+const editingMessageId = ref(null);
 let hideMenuTimeout = null;
 const store = useStore();
 
@@ -96,6 +105,39 @@ const cancelHideMenu = () => {
   if (hideMenuTimeout) {
     clearTimeout(hideMenuTimeout);
     hideMenuTimeout = null;
+  }
+};
+
+const handleEdit = (message) => {
+  if (hoveredMessage.value) {
+    editingMessageId.value = message._id;
+    showHoverMenu.value = false;
+  }
+};
+
+const handleEditComplete = async (messageData) => {
+  if (editingMessageId.value) {
+    try {
+      // Here you would typically update the message in your backend
+      await store.dispatch('messages/updateMessage', {
+        messageId: editingMessageId.value,
+        content: messageData.content,
+        token: store.state.auth.token,
+        currentChannel: store.state.channels.currentChannel._id
+      });
+      
+      // Update the message in the local state
+      const messageToUpdate = props.messages.find(m => m._id === editingMessageId.value);
+      if (messageToUpdate) {
+        messageToUpdate.content = messageData.content;
+      }
+      
+      // Clear editing state
+      editingMessageId.value = null;
+    } catch (error) {
+      console.error('Failed to update message:', error);
+      // You might want to show an error message to the user here
+    }
   }
 };
 
@@ -226,5 +268,9 @@ const hasUserReacted = (reaction) => {
   text-align: center;
   color: #ABABAD;
   padding: 40px 0;
+}
+
+.message-edit {
+  margin: 4px 0;
 }
 </style>

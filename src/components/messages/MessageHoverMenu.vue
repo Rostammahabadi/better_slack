@@ -15,6 +15,13 @@
         </svg>
         Add reaction
       </button>
+      <button class="menu-button" @click="$emit('edit')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16.474 5.408l2.118 2.117m-.756-3.982L12.109 9.27a2.118 2.118 0 00-.58 1.082L11 13l2.648-.53c.41-.082.786-.283 1.082-.579l5.727-5.727a1.853 1.853 0 10-2.621-2.621z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M19 15v3a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Edit message
+      </button>
       <button class="menu-button" @click="$emit('reply')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 6H4V18H9V21L12 18H20V6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -38,7 +45,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import EmojiPicker from './EmojiPicker.vue';
 
-const emit = defineEmits(['add-reaction', 'reply', 'menu-hover', 'menu-leave']);
+const emit = defineEmits(['add-reaction', 'reply', 'menu-hover', 'menu-leave', 'edit']);
 const showEmojiPicker = ref(false);
 const menuRef = ref(null);
 
