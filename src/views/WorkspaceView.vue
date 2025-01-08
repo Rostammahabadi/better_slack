@@ -132,11 +132,11 @@ const sendMessage = async (messageData) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      sendRealtimeMessage(message);
-      await store.dispatch('messages/sendMessage', {
+      const messageResponse = await store.dispatch('messages/sendMessage', {
         message,
         token: token.value
       });
+      sendRealtimeMessage(messageResponse);
     } else if (currentDirectMessage.value) {
       // Handle direct messages similarly
       const message = {

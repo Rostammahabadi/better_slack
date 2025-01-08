@@ -8,7 +8,7 @@ import store from './store'
 import { useSocket } from './services/socketService';
 
 const app = createApp(App)
-const { connect } = useSocket();
+const { connect } = useSocket(store);
 
 const initAuth0 = async () => {
   const auth0 = await createAuth0Client({

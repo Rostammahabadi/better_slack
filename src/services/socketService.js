@@ -1,11 +1,9 @@
 import { ref, onUnmounted } from 'vue';
 import { io } from 'socket.io-client';
-import { useStore } from 'vuex';
 
 let socket = null; // Make socket a module-level variable
 
-export function useSocket() {
-  const store = useStore();
+export function useSocket(store) {
   const isConnected = ref(false);
 
   const channelUsers = ref([]);
@@ -14,7 +12,6 @@ export function useSocket() {
 
   const initSocket = (token) => {
     if (socket) return; // Prevent multiple socket instances
-
     socket = io('http://localhost:3000', {
       autoConnect: false,
       withCredentials: true,
@@ -22,7 +19,6 @@ export function useSocket() {
         token: token
       }
     });
-
     // Connection events
     socket.on('connect', () => {
       isConnected.value = true;

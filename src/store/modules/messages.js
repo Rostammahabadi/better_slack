@@ -107,6 +107,7 @@ const actions = {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
+      return response.json();
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
