@@ -93,21 +93,19 @@ const storeData = computed(() => ({
   currentChannel: store.getters['channels/currentChannel'],
   sentInvites: store.getters['invites/sentInvites'],
   currentUser: store.getters['auth/currentUser'],
-  workspace: store.getters['workspaces/workspace']
+  workspace: store.getters['workspaces/currentWorkspace']
 }));
-
 const selectChannel = async (channel) => {
-  // Update the current channel in store first
   store.commit('channels/SET_CURRENT_CHANNEL', channel);
 
-  // Update URL without triggering a full navigation
+  // Update URL without triggering a navigation
   router.replace({
     name: 'channel',
     params: {
-      workspaceId: storeData.value.workspace.id,
+      workspaceId: storeData.value.workspace._id,
       channelId: channel._id
     }
-  }).catch(() => {}); // Catch any navigation errors silently
+  }, undefined, { force: false }).catch(() => {}); // Catch any navigation errors silently
 };
 
 const onChannelCreated = (channel) => {

@@ -1,11 +1,8 @@
 <template>
-  <div v-if="isLoading" class="loading">
-    Loading workspace...
-  </div>
-  <div v-else-if="error" class="error">
+  <div v-if="error" class="error">
     {{ error }}
   </div>
-  <WorkspaceLayout v-else :workspace="currentWorkspace">
+  <WorkspaceLayout v-else>
     <div class="channel-content">
       <div class="channel-header">
         <div class="channel-info">
@@ -57,11 +54,6 @@ const currentMessages = computed(() => {
   }
   return [];
 });
-const isLoading = computed(() => 
-  store.getters['workspaces/isLoading'] || 
-  store.getters['channels/isLoading'] || 
-  store.getters['messages/isLoading']
-);
 const error = computed(() => 
   store.getters['workspaces/error'] || 
   store.getters['channels/error'] || 
@@ -85,7 +77,7 @@ const {
 // Initialize workspace data
 onMounted(async () => {
   try {
-    connect();
+    // connect();
     const workspaceId = route.params.workspaceId;
     await store.dispatch('workspaces/fetchWorkspace', { 
       workspaceId, 
@@ -102,9 +94,7 @@ onMounted(async () => {
     if (route.params.channelId) {
       const channel = store.getters['channels/getChannelById'](route.params.channelId);
       if (channel) {
-        // In your component
-        store.commit('channels/SET_CURRENT_CHANNEL', channel);
-        
+        // come back to
         // Fetch messages for the channel
         await store.dispatch('messages/fetchMessages', {
           channelId: channel.id,
@@ -120,22 +110,12 @@ onMounted(async () => {
 });
 
 // Watch for channel changes to update URL and load messages
-watch(currentChannel, async (newChannel, oldChannel) => {
-  if (newChannel && newChannel.id !== oldChannel?.id && oldChannel !== null) {
-    // Update URL when channel changes
-    router.push({
-      name: 'channel',
-      params: {
-        workspaceId: route.params.workspaceId,
-        channelId: newChannel._id
-      }
-    });
-
-    console.log('Joining channel:', newChannel._id);
-    joinChannel(newChannel._id, currentUser);
+watch(() => route.params.channelId, async (newChannel, oldChannel) => {
+  if (newChannel && newChannel !== oldChannel && oldChannel !== null) {
+    joinChannel(newChannel, currentUser);
     // Fetch messages for the new channel
     await store.dispatch('messages/fetchMessages', {
-      channelId: newChannel._id,
+      channelId: newChannel,
       token: token.value
     });
   }

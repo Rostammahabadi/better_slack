@@ -1,6 +1,6 @@
 <template>
   <div class="workspace-layout">
-    <WorkspaceNavBar :user="currentUser" />
+    <WorkspaceNavBar/>
     <div class="workspace-sidebar">
       <WorkspaceSidebar />
     </div>
@@ -14,14 +14,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useStore } from 'vuex';
 import WorkspaceNavBar from './WorkspaceNavBar.vue';
 import WorkspaceSidebar from './WorkspaceSidebar.vue';
 import WorkspaceHeader from './WorkspaceHeader.vue';
 
-const store = useStore();
-const currentUser = computed(() => store.getters['auth/currentUser']);
 
 </script>
 

@@ -135,12 +135,6 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 
 const auth0 = inject('auth0');
-const props = defineProps({
-  user: {
-    type: Object,
-    required: true
-  }
-});
 
 const store = useStore();
 const router = useRouter();
@@ -148,12 +142,10 @@ const showUserMenu = ref(false);
 const userMenuTrigger = ref(null);
 const userMenu = ref(null);
 
-const userAvatar = computed(() => {
-  return props.user?.picture || props.user?.avatarUrl;
-});
 
-const workspace = computed(() => store.getters['workspaces/workspace']);
-
+const workspace = computed(() => store.getters['workspaces/currentWorkspace']);
+const user = computed(() => store.getters['auth/currentUser']);
+const userAvatar = user.value.picture || user.value.avatarUrl;
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value;
 };
