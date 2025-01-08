@@ -7,7 +7,6 @@ import router from './router/index.js'
 import store from './store'
 import { useSocket } from './services/socketService';
 
-
 const app = createApp(App)
 const { connect } = useSocket();
 
@@ -17,9 +16,12 @@ const initAuth0 = async () => {
     clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
     authorizationParams: {
       redirect_uri: `${window.location.origin}/callback`,
-      audience: import.meta.env.VITE_AUTH0_AUDIENCE
+      audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+      scope: 'openid profile email offline_access'
     },
-    cacheLocation: 'localstorage'
+    cacheLocation: 'localstorage',
+    useRefreshTokens: true,
+    useRefreshTokensFallback: true
   });
 
   app.provide('auth0', auth0);
@@ -44,20 +46,41 @@ const initAuth0 = async () => {
 
     // For all other routes, check authentication
     const isAuthenticated = await auth0.isAuthenticated();
+    const storedToken = localStorage.getItem('auth_token');
     
-    if (isAuthenticated) {
+    if (isAuthenticated || storedToken) {
       try {
-        // Get the token
-        const token = await auth0.getTokenSilently();
+        // Try to get a new token silently
+        const token = await auth0.getTokenSilently({
+          detailedResponse: true,
+          timeoutInSeconds: 60,
+          cacheMode: 'on'
+        });
+
         // Initialize auth state with token
-        await store.dispatch('auth/initializeAuth', { auth0, token });
-        connect(token);
+        await store.dispatch('auth/initializeAuth', { 
+          auth0, 
+          token: token.access_token,
+          expiresIn: token.expires_in 
+        });
+        
+        connect(token.access_token);
+        
         // Mount the app
         app.mount('#app');
       } catch (error) {
         console.error('Token refresh error:', error);
-        // If token refresh fails, redirect to login
-        window.location.pathname = '/login';
+        // Only redirect to login if we can't refresh the token
+        if (!storedToken) {
+          window.location.pathname = '/login';
+        } else {
+          // If we have a stored token, try to use it
+          await store.dispatch('auth/initializeAuth', { 
+            auth0, 
+            token: storedToken 
+          });
+          app.mount('#app');
+        }
       }
     } else {
       // If not authenticated and not on login/callback, redirect to login
@@ -65,21 +88,28 @@ const initAuth0 = async () => {
     }
   } catch (error) {
     console.error('Auth check error:', error);
-    // On error, redirect to login
-    window.location.pathname = '/login';
+    // On error, check if we have a stored token before redirecting
+    const storedToken = localStorage.getItem('auth_token');
+    if (storedToken) {
+      await store.dispatch('auth/initializeAuth', { 
+        auth0, 
+        token: storedToken 
+      });
+      app.mount('#app');
+    } else {
+      window.location.pathname = '/login';
+    }
   }
 };
 
-// Check for authentication errors
-const search = window.location.search;
-if (search.includes("error=")) {
-  // Only redirect on actual errors
-  console.error('Auth0 error:', search);
-  window.location.pathname = '/login';
-} else {
-  // Initialize auth
-  initAuth0().catch(e => {
-    console.error('Failed to initialize auth:', e);
+// Initialize auth
+initAuth0().catch(e => {
+  console.error('Failed to initialize auth:', e);
+  // Check stored token before redirecting
+  const storedToken = localStorage.getItem('auth_token');
+  if (storedToken) {
+    app.mount('#app');
+  } else {
     window.location.pathname = '/login';
-  });
-}
+  }
+});

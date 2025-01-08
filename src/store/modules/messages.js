@@ -11,12 +11,6 @@ const mutations = {
       [channelId]: messages
     };
   },
-  ADD_MESSAGE(state, { channelId, message }) {
-    if (!state.messagesByChannel[channelId]) {
-      state.messagesByChannel[channelId] = [];
-    }
-    state.messagesByChannel[channelId].push(message);
-  },
   SET_LOADING(state, isLoading) {
     state.isLoading = isLoading;
   },
@@ -53,10 +47,19 @@ const mutations = {
     if (state.messagesByChannel[channelId]) {
       state.messagesByChannel[channelId] = state.messagesByChannel[channelId].filter(msg => msg._id !== messageId);
     }
+  },
+  ADD_MESSAGE(state, message) {
+    if (!state.messagesByChannel[message.channelId]) {
+      state.messagesByChannel[message.channelId] = [];
+    }
+    state.messagesByChannel[message.channelId].push(message);
   }
 };
 
 const actions = {
+  addMessage({ commit }, message) {
+    commit('ADD_MESSAGE', message);
+  },
   async fetchMessages({ commit }, { channelId, token }) {
     commit('SET_LOADING', true);
     commit('SET_ERROR', null);
@@ -104,13 +107,6 @@ const actions = {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-
-      const sentMessage = await response.json();
-      commit('ADD_MESSAGE', { 
-        channelId: message.channelId, 
-        message: sentMessage 
-      });
-      return sentMessage;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;

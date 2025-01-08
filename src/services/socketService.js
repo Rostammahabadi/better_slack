@@ -7,7 +7,7 @@ let socket = null; // Make socket a module-level variable
 export function useSocket() {
   const store = useStore();
   const isConnected = ref(false);
-  const currentUserChannel = ref(null);
+
   const channelUsers = ref([]);
   const messages = ref([]);
   const typingUsers = ref(new Set());
@@ -40,7 +40,7 @@ export function useSocket() {
     });
 
     socket.on('channel:message', (message) => {
-      messages.value.push(message);
+      store.dispatch('messages/addMessage', message);
     });
 
     socket.on('channel:typing', ({ username, isTyping }) => {
@@ -50,9 +50,8 @@ export function useSocket() {
         typingUsers.value.delete(username);
       }
     });
-
-    socket.on('channel:user_joined', ({ username }) => {
-      console.log(`${username} joined the channel`);
+    socket.on('channel:user_joined', ({ userId, channelId }) => {
+      console.log(`User ${userId} joined channel ${channelId}`);
     });
 
     socket.on('channel:user_left', ({ username }) => {
@@ -64,31 +63,26 @@ export function useSocket() {
   // Channel actions
   const joinChannel = (channelId, user) => {
     if (!socket) return;
-    console.log("joined channel", channelId, user);
-    currentUserChannel.value = channelId;
-    socket.emit('channel:join', { channelId, user });
+    console.log("joining channel", channelId, user._id); // Assuming user has _id
+    socket.emit('channel:join', channelId, user._id); // Send as separate parameters
   };
 
-  const leaveChannel = () => {
-    if (!socket || !currentUserChannel.value) return;
-    socket.emit('channel:leave', { channelId: currentUserChannel.value });
-    currentUserChannel.value = null;
+  const leaveChannel = (channelId) => {
+    if (!socket) return;
+    socket.emit('channel:leave', { channelId });
     messages.value = [];
     typingUsers.value.clear();
   };
-
+  
   const sendRealtimeMessage = (message) => {
-    if (!socket || !currentUserChannel.value) return;
-    socket.emit('channel:message', {
-      channelId: currentUserChannel.value,
-      message
-    });
+    if (!socket) return;
+    socket.emit('channel:message', message);
   };
 
-  const sendTyping = (isTyping) => {
-    if (!socket || !currentUserChannel.value) return;
+  const sendTyping = (isTyping, channelId) => {
+    if (!socket) return;
     socket.emit('channel:typing', {
-      channelId: currentUserChannel.value,
+      channelId: channelId,
       isTyping
     });
   };
@@ -113,7 +107,6 @@ export function useSocket() {
 
   return {
     isConnected,
-    currentUserChannel,
     channelUsers,
     messages,
     typingUsers,

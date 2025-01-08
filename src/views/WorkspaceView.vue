@@ -38,6 +38,7 @@ import TextEditor from '../components/TextEditor.vue';
 import { useSocket } from '../services/socketService';
 const {
   joinChannel,
+  sendRealtimeMessage,
 } = useSocket();
 
 const route = useRoute();
@@ -100,9 +101,9 @@ onMounted(async () => {
 
 // Watch for channel changes to update URL and load messages
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
-  if (newChannel && newChannel !== oldChannel && oldChannel !== null) {
-    const channel = store.getters['channels/getChannelById'](newChannel);
-    joinChannel(newChannel, currentUser.value);   
+    joinChannel(newChannel, currentUser.value);
+  if (newChannel && newChannel !== oldChannel) {
+    const channel = store.getters['channels/getChannelById'](newChannel);   
     // Fetch messages for the new channel
     await store.dispatch('messages/fetchMessages', {
       channelId: newChannel,
@@ -131,7 +132,7 @@ const sendMessage = async (messageData) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-
+      sendRealtimeMessage(message);
       await store.dispatch('messages/sendMessage', {
         message,
         token: token.value
