@@ -136,10 +136,6 @@ import { useRouter } from 'vue-router';
 
 const auth0 = inject('auth0');
 const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  },
   user: {
     type: Object,
     required: true
@@ -155,6 +151,8 @@ const userMenu = ref(null);
 const userAvatar = computed(() => {
   return props.user?.picture || props.user?.avatarUrl;
 });
+
+const workspace = computed(() => store.getters['workspaces/workspace']);
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value;

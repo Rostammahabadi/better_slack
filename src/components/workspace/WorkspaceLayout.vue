@@ -1,11 +1,11 @@
 <template>
   <div class="workspace-layout">
-    <WorkspaceNavBar :workspace="workspace" :user="currentUser" />
+    <WorkspaceNavBar :user="currentUser" />
     <div class="workspace-sidebar">
-      <WorkspaceSidebar :workspace="workspace" />
+      <WorkspaceSidebar />
     </div>
     <div class="workspace-main">
-      <WorkspaceHeader :workspace="workspace" />
+      <WorkspaceHeader />
       <div class="workspace-content">
         <slot></slot>
       </div>
@@ -23,12 +23,6 @@ import WorkspaceHeader from './WorkspaceHeader.vue';
 const store = useStore();
 const currentUser = computed(() => store.getters['auth/currentUser']);
 
-defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
 </script>
 
 <style>

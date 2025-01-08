@@ -155,10 +155,7 @@ const createChannel = async () => {
     });
 
     // Set the new channel as active
-    await store.dispatch('channels/setCurrentChannel', {
-      channel,
-      token
-    });
+    store.commit('channels/SET_CURRENT_CHANNEL', channel);
 
     // Update URL without triggering a full navigation
     router.replace({

@@ -107,10 +107,6 @@ const actions = {
       commit('SET_LOADING', false);
     }
   },
-
-  async setCurrentChannel({ commit, dispatch }, { channel, token }) {
-    commit('SET_CURRENT_CHANNEL', channel);
-  }
 };
 
 const getters = {

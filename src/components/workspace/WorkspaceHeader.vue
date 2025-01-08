@@ -21,12 +21,11 @@
 </template>
 
 <script setup>
-defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
+import { computed } from 'vue';
+import { useStore } from 'vuex';
+
+const store = useStore();
+const workspace = computed(() => store.getters['workspaces/workspace']);
 </script>
 
 <style scoped>

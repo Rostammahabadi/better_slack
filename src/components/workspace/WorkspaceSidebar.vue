@@ -2,7 +2,7 @@
   <div class="sidebar">
     <!-- Workspace Header -->
     <div class="workspace-header">
-      <h1 class="workspace-name">{{ workspace.name }}</h1>
+      <h1 class="workspace-name">{{ storeData.workspace?.name }}</h1>
     </div>
 
     <!-- Search Bar -->
@@ -18,10 +18,10 @@
       </div>
       <div class="section-items">
         <div 
-          v-for="channel in workspace.channels" 
+          v-for="channel in storeData.channels" 
           :key="channel.id"
           class="section-item"
-          :class="{ active: currentChannel?.id === channel.id }"
+          :class="{ active: storeData.currentChannel?.id === channel.id }"
           @click="selectChannel(channel)"
         >
           <span class="icon">{{ channel.type === 'private' ? '🔒' : '#' }}</span>
@@ -39,12 +39,12 @@
       <div class="section-items">
         <div class="section-item">
           <span class="status-icon">🟢</span>
-          <span>{{ currentUser.displayName }}</span>
-          <span class="you-label" v-if="workspace.user_role === 'admin'">you</span>
+          <span>{{ storeData.currentUser.displayName }}</span>
+          <span class="you-label" v-if="storeData.workspace?.user_role === 'admin'">you</span>
         </div>
         <!-- Pending Invites -->
         <div 
-          v-for="invite in sentInvites" 
+          v-for="invite in storeData.sentInvites" 
           :key="invite.id" 
           class="section-item pending-invite"
         >
@@ -68,25 +68,18 @@
     <!-- Invite Users Modal -->
     <InviteUsersModal
       v-if="showInviteModal"
-      :workspace-id="workspace.id"
+      :workspace-id="storeData.workspace?.id"
       @close="showInviteModal = false"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
-
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
 
 const store = useStore();
 const router = useRouter();
@@ -94,23 +87,24 @@ const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
 
-const channels = computed(() => store.getters['channels/channels']);
-const currentChannel = computed(() => store.getters['channels/currentChannel']);
-const sentInvites = computed(() => store.getters['invites/sentInvites']);
-const currentUser = computed(() => store.getters['auth/currentUser']);
+// Single computed property for store data to reduce reactivity triggers
+const storeData = computed(() => ({
+  channels: store.getters['channels/channels'],
+  currentChannel: store.getters['channels/currentChannel'],
+  sentInvites: store.getters['invites/sentInvites'],
+  currentUser: store.getters['auth/currentUser'],
+  workspace: store.getters['workspaces/workspace']
+}));
 
 const selectChannel = async (channel) => {
   // Update the current channel in store first
-  await store.dispatch('channels/setCurrentChannel', {
-    channel,
-    token: store.getters['auth/token']
-  });
+  store.commit('channels/SET_CURRENT_CHANNEL', channel);
 
   // Update URL without triggering a full navigation
   router.replace({
     name: 'channel',
     params: {
-      workspaceId: props.workspace.id,
+      workspaceId: storeData.value.workspace.id,
       channelId: channel._id
     }
   }).catch(() => {}); // Catch any navigation errors silently
