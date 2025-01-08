@@ -5,8 +5,11 @@ import { createAuth0Client } from '@auth0/auth0-spa-js';
 import App from './App.vue'
 import router from './router/index.js'
 import store from './store'
+import { useSocket } from './services/socketService';
+
 
 const app = createApp(App)
+const { connect } = useSocket();
 
 const initAuth0 = async () => {
   const auth0 = await createAuth0Client({
@@ -46,10 +49,9 @@ const initAuth0 = async () => {
       try {
         // Get the token
         const token = await auth0.getTokenSilently();
-
         // Initialize auth state with token
         await store.dispatch('auth/initializeAuth', { auth0, token });
-        
+        connect(token);
         // Mount the app
         app.mount('#app');
       } catch (error) {

@@ -2,99 +2,113 @@ import { ref, onUnmounted } from 'vue';
 import { io } from 'socket.io-client';
 import { useStore } from 'vuex';
 
+let socket = null; // Make socket a module-level variable
+
 export function useSocket() {
   const store = useStore();
-  const socket = io('http://localhost:3000', {
-    autoConnect: false,
-    withCredentials: true,
-    auth: {
-      token: store.getters['auth/token']
-    }
-  });
-
   const isConnected = ref(false);
   const currentUserChannel = ref(null);
   const channelUsers = ref([]);
   const messages = ref([]);
   const typingUsers = ref(new Set());
 
-  // Connection events
-  socket.on('connect', () => {
-    isConnected.value = true;
-    console.log('Connected to server');
-  });
+  const initSocket = (token) => {
+    if (socket) return; // Prevent multiple socket instances
 
-  socket.on('disconnect', () => {
-    isConnected.value = false;
-    console.log('Disconnected from server');
-  });
+    socket = io('http://localhost:3000', {
+      autoConnect: false,
+      withCredentials: true,
+      auth: {
+        token: token
+      }
+    });
 
-  // Channel events
-  socket.on('channel:users', (users) => {
-    channelUsers.value = users;
-  });
+    // Connection events
+    socket.on('connect', () => {
+      isConnected.value = true;
+      console.log('Connected to server');
+    });
 
-  socket.on('channel:message', (message) => {
-    messages.value.push(message);
-  });
+    socket.on('disconnect', () => {
+      isConnected.value = false;
+      console.log('Disconnected from server');
+    });
 
-  socket.on('channel:typing', ({ username, isTyping }) => {
-    if (isTyping) {
-      typingUsers.value.add(username);
-    } else {
+    // Channel events
+    socket.on('channel:users', (users) => {
+      channelUsers.value = users;
+    });
+
+    socket.on('channel:message', (message) => {
+      messages.value.push(message);
+    });
+
+    socket.on('channel:typing', ({ username, isTyping }) => {
+      if (isTyping) {
+        typingUsers.value.add(username);
+      } else {
+        typingUsers.value.delete(username);
+      }
+    });
+
+    socket.on('channel:user_joined', ({ username }) => {
+      console.log(`${username} joined the channel`);
+    });
+
+    socket.on('channel:user_left', ({ username }) => {
+      console.log(`${username} left the channel`);
       typingUsers.value.delete(username);
-    }
-  });
-
-  socket.on('channel:user_joined', ({ username }) => {
-    console.log(`${username} joined the channel`);
-  });
-
-  socket.on('channel:user_left', ({ username }) => {
-    console.log(`${username} left the channel`);
-    typingUsers.value.delete(username);
-  });
+    });
+  };
 
   // Channel actions
   const joinChannel = (channelId, user) => {
+    if (!socket) return;
+    console.log("joined channel", channelId, user);
     currentUserChannel.value = channelId;
     socket.emit('channel:join', { channelId, user });
   };
 
   const leaveChannel = () => {
-    if (currentUserChannel.value) {
-      socket.emit('channel:leave', { channelId: currentUserChannel.value });
-      currentUserChannel.value = null;
-      messages.value = [];
-      typingUsers.value.clear();
-    }
+    if (!socket || !currentUserChannel.value) return;
+    socket.emit('channel:leave', { channelId: currentUserChannel.value });
+    currentUserChannel.value = null;
+    messages.value = [];
+    typingUsers.value.clear();
   };
 
   const sendRealtimeMessage = (message) => {
-    if (currentUserChannel.value) {
-      socket.emit('channel:message', {
-        channelId: currentUserChannel.value,
-        message
-      });
-    }
+    if (!socket || !currentUserChannel.value) return;
+    socket.emit('channel:message', {
+      channelId: currentUserChannel.value,
+      message
+    });
   };
 
   const sendTyping = (isTyping) => {
-    if (currentUserChannel.value) {
-      socket.emit('channel:typing', {
-        channelId: currentUserChannel.value,
-        isTyping
-      });
-    }
+    if (!socket || !currentUserChannel.value) return;
+    socket.emit('channel:typing', {
+      channelId: currentUserChannel.value,
+      isTyping
+    });
   };
 
   // Connect/Disconnect methods
-  const connect = () => socket.connect();
-  const disconnect = () => socket.disconnect();
+  const connect = (token) => {
+    initSocket(token);
+    socket?.connect();
+  };
+
+  const disconnect = () => {
+    if (!socket) return;
+    socket.disconnect();
+    socket.removeAllListeners();
+    socket = null;
+  };
 
   // Cleanup on component unmount
   onUnmounted(() => {
-    socket.disconnect();
+    disconnect();
   });
 
   return {

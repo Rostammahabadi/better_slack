@@ -87,6 +87,7 @@ const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
 
+
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
   channels: store.getters['channels/channels'],
@@ -96,7 +97,10 @@ const storeData = computed(() => ({
   workspace: store.getters['workspaces/currentWorkspace']
 }));
 const selectChannel = async (channel) => {
-  store.commit('channels/SET_CURRENT_CHANNEL', channel);
+    await store.dispatch('channels/setCurrentChannel', {
+    channel,
+    token: store.getters['auth/token']
+  });
 
   // Update URL without triggering a navigation
   router.replace({

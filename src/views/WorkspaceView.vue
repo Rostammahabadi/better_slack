@@ -36,6 +36,9 @@ import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
 import MessageList from '../components/messages/MessageList.vue';
 import TextEditor from '../components/TextEditor.vue';
 import { useSocket } from '../services/socketService';
+const {
+  joinChannel,
+} = useSocket();
 
 const route = useRoute();
 const router = useRouter();
@@ -61,23 +64,9 @@ const error = computed(() =>
 );
 const token = computed(() => store.getters['auth/token']);
 const currentUser = computed(() => store.getters['auth/currentUser']);
-
-const {
-  isConnected,
-  currentUserChannel,
-  channelUsers,
-  messages,
-  typingUsers,
-  connect,
-  joinChannel,
-  sendRealtimeMessage,
-  sendTyping
-} = useSocket();
-
 // Initialize workspace data
 onMounted(async () => {
   try {
-    // connect();
     const workspaceId = route.params.workspaceId;
     await store.dispatch('workspaces/fetchWorkspace', { 
       workspaceId, 
@@ -112,7 +101,8 @@ onMounted(async () => {
 // Watch for channel changes to update URL and load messages
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
   if (newChannel && newChannel !== oldChannel && oldChannel !== null) {
-    joinChannel(newChannel, currentUser);
+    const channel = store.getters['channels/getChannelById'](newChannel);
+    joinChannel(newChannel, currentUser.value);   
     // Fetch messages for the new channel
     await store.dispatch('messages/fetchMessages', {
       channelId: newChannel,
