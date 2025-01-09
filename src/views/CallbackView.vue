@@ -10,9 +10,11 @@
 import { inject } from 'vue';
 import { useRouter } from 'vue-router';
 import store from '../store';
+import { useSocket } from '../services/socketService';
 
 const router = useRouter();
 const auth0 = inject('auth0');
+const { connect } = useSocket();
 
 const handleCallback = async () => {
   try {

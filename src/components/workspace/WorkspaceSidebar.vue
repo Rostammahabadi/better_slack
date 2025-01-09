@@ -23,10 +23,25 @@
           class="section-item"
           :class="{ active: storeData.currentChannel?.id === channel.id }"
           @click="selectChannel(channel)"
+          @contextmenu.prevent="showContextMenu($event, channel)"
         >
           <span class="icon">{{ channel.type === 'private' ? '🔒' : '#' }}</span>
           <span>{{ channel.name }}</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Channel Context Menu -->
+    <div 
+      v-if="contextMenu.show" 
+      class="context-menu"
+      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+    >
+      <div class="menu-item" @click="updateChannel(contextMenu.channel)">
+        Update channel
+      </div>
+      <div class="menu-item" @click="deleteChannel(contextMenu.channel)">
+        Delete channel
       </div>
     </div>
 
@@ -75,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
@@ -86,7 +101,37 @@ const router = useRouter();
 const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
+const contextMenu = ref({
+  show: false,
+  x: 0,
+  y: 0,
+  channel: null
+});
 
+// Handle clicking outside context menu to close it
+const closeContextMenu = (e) => {
+  if (!e.target.closest('.context-menu')) {
+    contextMenu.value.show = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', closeContextMenu);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeContextMenu);
+});
+
+const showContextMenu = (event, channel) => {
+  event.preventDefault();
+  contextMenu.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    channel
+  };
+};
 
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
@@ -96,6 +141,7 @@ const storeData = computed(() => ({
   currentUser: store.getters['auth/currentUser'],
   workspace: store.getters['workspaces/currentWorkspace']
 }));
+
 const selectChannel = async (channel) => {
     await store.dispatch('channels/setCurrentChannel', {
     channel,

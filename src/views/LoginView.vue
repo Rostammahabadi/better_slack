@@ -5,7 +5,10 @@
     </header>
     
     <main class="main">
-      <div class="container">
+      <div v-if="isLoading" class="loading">
+        Checking authentication...
+      </div>
+      <div v-else class="container">
         <h1>Sign in to ChatGenius</h1>
         <p class="subtitle">We suggest using the email address you use at work.</p>
         
@@ -72,17 +75,76 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { inject } from 'vue'
+import { ref, onMounted } from 'vue';
+import { inject } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+
+const router = useRouter();
+const store = useStore();
+const auth0 = inject('auth0');
 const isLoading = ref(false);
 const error = ref('');
 const email = ref('');
-const auth0 = inject('auth0');
+
+onMounted(async () => {
+  try {
+    isLoading.value = true;
+    
+    // Check if we have a stored token
+    const storedToken = localStorage.getItem('auth_token');
+    const isAuthenticated = await auth0.isAuthenticated();
+    
+    if (isAuthenticated || storedToken) {
+      try {
+        // Try to get a new token silently
+        const token = await auth0.getTokenSilently({
+          detailedResponse: true,
+          timeoutInSeconds: 60,
+          cacheMode: 'on'
+        });
+
+        // Initialize auth state with token
+        await store.dispatch('auth/initializeAuth', { 
+          auth0, 
+          token: token.access_token,
+          expiresIn: token.expires_in 
+        });
+        
+        // Get the default workspace and redirect
+        const workspace = store.getters['auth/defaultWorkspace'];
+        if (workspace?._id) {
+          router.replace(`/workspaces/${workspace._id}`);
+          return;
+        }
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        // If we have a stored token, try to use it
+        if (storedToken) {
+          await store.dispatch('auth/initializeAuth', { 
+            auth0, 
+            token: storedToken 
+          });
+          const workspace = store.getters['auth/defaultWorkspace'];
+          if (workspace?._id) {
+            router.replace(`/workspaces/${workspace._id}`);
+            return;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Auth check error:', err);
+    error.value = 'Failed to check authentication status.';
+  } finally {
+    isLoading.value = false;
+  }
+});
+
 const signInWithEmail = async () => {
   try {
     isLoading.value = true;
     error.value = '';
-    // Implement magic code login logic here
     await auth0.loginWithRedirect();
   } catch (err) {
     console.error('Login error:', err);
@@ -298,5 +360,13 @@ const showManualSignIn = () => {
   .container {
     padding: 0;
   }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: var(--slack-subtle);
 }
 </style> 
