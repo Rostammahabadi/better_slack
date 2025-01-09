@@ -39,6 +39,7 @@ import { useSocket } from '../services/socketService';
 const {
   joinChannel,
   sendRealtimeMessage,
+  connect
 } = useSocket();
 
 const route = useRoute();
@@ -59,6 +60,7 @@ const token = computed(() => store.getters['auth/token']);
 const currentUser = computed(() => store.getters['auth/currentUser']);
 // Initialize workspace data
 onMounted(async () => {
+  connect(localStorage.getItem('auth_token'));
   try {
     const workspaceId = route.params.workspaceId;
     await store.dispatch('workspaces/fetchWorkspace', { 
