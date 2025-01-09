@@ -14,11 +14,24 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue';
 import WorkspaceNavBar from './WorkspaceNavBar.vue';
 import WorkspaceSidebar from './WorkspaceSidebar.vue';
 import WorkspaceHeader from './WorkspaceHeader.vue';
+import { useStore } from 'vuex';
+const store = useStore();
+
+import { useSocket } from '../../services/socketService';
+const {
+  sendWorkspaceJoined
+} = useSocket();
 
 
+const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
+
+onMounted(() => {
+  sendWorkspaceJoined(currentWorkspace.value._id, store.state.auth.user.user);
+});
 </script>
 
 <style>

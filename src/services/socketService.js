@@ -66,6 +66,10 @@ export function useSocket(store) {
     socket.on('channel:edit_message', ({ channelId, messageId, message }) => {
       store.commit('messages/UPDATE_MESSAGE', { channelId, messageId, message });
     });
+
+    socket.on('channel:create', (channel) => {
+      store.commit('channels/ADD_CHANNEL', channel.channel);
+    });
   };
 
   // Channel actions
@@ -80,6 +84,11 @@ export function useSocket(store) {
     socket.emit('channel:leave', { channelId });
     messages.value = [];
     typingUsers.value.clear();
+  };
+
+  const sendChannelCreated = (channel) => {
+    if (!socket) return;
+    socket.emit('channel:create', channel);
   };
   
   const sendRealtimeMessage = (message) => {
@@ -108,6 +117,11 @@ export function useSocket(store) {
       channelId: channelId,
       isTyping
     });
+  };
+
+  const sendWorkspaceJoined = (workspaceId, user) => {
+    if (!socket) return;
+    socket.emit('workspace:join', workspaceId, user._id);
   };
 
   // Connect/Disconnect methods
@@ -141,6 +155,8 @@ export function useSocket(store) {
     sendTyping,
     sendReaction,
     sendEditMessage,
-    sendReactionRemoved
+    sendReactionRemoved,
+    sendWorkspaceJoined,
+    sendChannelCreated
   };
 }

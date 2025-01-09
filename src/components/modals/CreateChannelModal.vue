@@ -98,6 +98,10 @@
 import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import { useSocket } from '../../services/socketService';
+const {
+  sendChannelCreated
+} = useSocket();
 
 const props = defineProps({
   show: {
@@ -153,6 +157,8 @@ const createChannel = async () => {
       channelData,
       token
     });
+
+    sendChannelCreated(channel);
 
     // Set the new channel as active
     store.commit('channels/SET_CURRENT_CHANNEL', channel);

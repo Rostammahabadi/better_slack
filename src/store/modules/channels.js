@@ -83,18 +83,6 @@ const actions = {
       }
 
       const channel = await response.json();
-      
-      // Add the channel to the channels list (will be sorted automatically)
-      commit('ADD_CHANNEL', channel);
-      
-      // Update the workspace's channels list
-      if (rootState.workspaces.currentWorkspace) {
-        const workspace = { ...rootState.workspaces.currentWorkspace };
-        if (!workspace.channels) workspace.channels = [];
-        workspace.channels.push(channel);
-        workspace.channels = sortChannels(workspace.channels);
-        commit('workspaces/SET_CURRENT_WORKSPACE', workspace, { root: true });
-      }
 
       // Set as current channel
       commit('SET_CURRENT_CHANNEL', channel);
