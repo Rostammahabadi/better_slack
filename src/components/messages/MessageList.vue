@@ -71,6 +71,8 @@ import { useSocket } from '../../services/socketService';
 const store = useStore();
 const {
   sendReaction,
+  sendReactionRemoved,
+  sendEditMessage
 } = useSocket();
 
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
@@ -121,21 +123,13 @@ const handleEditComplete = async (messageData) => {
   if (editingMessageId.value) {
     try {
       // Here you would typically update the message in your backend
-      await store.dispatch('messages/updateMessage', {
+      const editedMessage = await store.dispatch('messages/updateMessage', {
         messageId: editingMessageId.value,
         content: messageData.content,
         token: store.state.auth.token,
         currentChannel: store.state.channels.currentChannel._id
       });
-      
-      // Update the message in the local state
-      const messageToUpdate = messages.value.find(m => m._id === editingMessageId.value);
-      if (messageToUpdate) {
-        messageToUpdate.content = messageData.content;
-      }
-      
-      // Clear editing state
-      editingMessageId.value = null;
+      sendEditMessage(editedMessage._id, editedMessage, store.state.channels.currentChannel._id);
     } catch (error) {
       console.error('Failed to update message:', error);
       // You might want to show an error message to the user here
@@ -161,10 +155,12 @@ const handleRemoveReaction = async (emoji, messageId) => {
   const userReactionIndex = message.reactions.findIndex(
       r => r.user === currentUserId && r.emoji === emoji
     );
+  const reaction = message.reactions[userReactionIndex];
   if (hoveredMessage.value) {
-    await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: message.reactions[userReactionIndex]._id, token, currentChannel });
-    message.reactions.splice(userReactionIndex, 1);
+    await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: reaction._id, token, currentChannel });
+    sendReactionRemoved(message._id, reaction, currentChannel);
   }
+
 };
 
 const handleReply = () => {

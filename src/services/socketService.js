@@ -59,12 +59,12 @@ export function useSocket(store) {
       store.commit('messages/ADD_REACTION', { messageId, reaction, channelId });
     });
 
-    socket.on('channel:reaction_removed', ({ channelId, messageId, reactionId }) => {
-      store.dispatch('messages/removeReaction', { messageId, reactionId, channelId });
+    socket.on('channel:reaction_removed', ({ channelId, messageId, reaction }) => {
+      store.commit('messages/REMOVE_REACTION', { messageId, reaction, channelId });
     });
 
-    socket.on('channel:edit_message', ({ messageId, message }) => {
-      store.dispatch('messages/editMessage', { messageId, message });
+    socket.on('channel:edit_message', ({ channelId, messageId, message }) => {
+      store.commit('messages/UPDATE_MESSAGE', { channelId, messageId, message });
     });
   };
 
@@ -92,9 +92,14 @@ export function useSocket(store) {
     socket.emit('channel:reaction', { messageId, reaction, channelId });
   };
 
-  const sendEditMessage = (messageId, message) => {
+  const sendReactionRemoved = (messageId, reaction, channelId) => {
     if (!socket) return;
-    socket.emit('channel:edit_message', { messageId, message });
+    socket.emit('channel:reaction_removed', { messageId, reaction, channelId });
+  };
+
+  const sendEditMessage = (messageId, message, channelId) => {
+    if (!socket) return;
+    socket.emit('channel:edit_message', { messageId, message, channelId });
   };
 
   const sendTyping = (isTyping, channelId) => {
@@ -135,6 +140,7 @@ export function useSocket(store) {
     sendRealtimeMessage,
     sendTyping,
     sendReaction,
-    sendEditMessage
+    sendEditMessage,
+    sendReactionRemoved
   };
 }

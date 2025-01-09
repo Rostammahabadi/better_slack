@@ -23,11 +23,16 @@ const mutations = {
       message.reactions.push(reaction);
     }
   },
-  REMOVE_REACTION(state, { messageId, reaction, currentChannel }) {
-    const message = state.messagesByChannel[currentChannel].find(msg => msg._id === messageId);
-    if (message) {
-      message.reactions = message.reactions.filter(r => r.emoji !== reaction);
-    }
+  REMOVE_REACTION(state, { messageId, reaction, channelId }) {
+    state.messagesByChannel[channelId] = state.messagesByChannel[channelId].map(msg => {
+      if (msg._id === messageId) {
+        return {
+          ...msg,
+          reactions: msg.reactions.filter(r => r._id !== reaction._id)
+        };
+      }
+      return msg;
+    });
   },
   RECEIVE_MESSAGE(state, { channelId, message }) {
     if (!state.messagesByChannel[channelId]) {
@@ -132,12 +137,10 @@ const actions = {
     }
 
     const addedReaction = await response.json();
-    commit('ADD_REACTION', { messageId, reaction: addedReaction, channelId: currentChannel });
     return addedReaction;
   },
 
-  async removeReaction({ commit }, { messageId, reactionId, token, currentChannel }) {
-    commit('REMOVE_REACTION', { messageId, reactionId, currentChannel });
+  async removeReaction({ commit }, { messageId, reactionId, token, channelId }) { 
     const response = await fetch(
       `${import.meta.env.VITE_API_URL}/api/messages/${messageId}/reactions/${reactionId}`,
       {
@@ -160,9 +163,8 @@ const actions = {
     }
   },
 
-  async updateMessage({ commit, rootState }, message) {
+  async updateMessage({ commit }, message) {
     const messageId = message.messageId;
-    const channelId = message.currentChannel;
     const token = message.token;
 
     const response = await fetch(
@@ -172,15 +174,13 @@ const actions = {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ _id: messageId, content: message.content })
+        body: JSON.stringify(message)
       }
     );
     if (!response.ok) {
       throw new Error('Failed to update message');
     }
-    if (channelId === rootState.channels.currentChannel?._id) {
-      commit('UPDATE_MESSAGE', { channelId, message });
-    }
+    return response.json();
   },
 
   deleteMessage({ commit, rootState }, messageId) {
