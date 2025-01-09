@@ -122,17 +122,18 @@ const handleEdit = (message) => {
 const handleEditComplete = async (messageData) => {
   if (editingMessageId.value) {
     try {
-      // Here you would typically update the message in your backend
       const editedMessage = await store.dispatch('messages/updateMessage', {
-        messageId: editingMessageId.value,
+        _id: editingMessageId.value,
         content: messageData.content,
-        token: store.state.auth.token,
-        currentChannel: store.state.channels.currentChannel._id
+        channelId: store.state.channels.currentChannel._id,
+        token: store.state.auth.token
       });
-      sendEditMessage(editedMessage._id, editedMessage, store.state.channels.currentChannel._id);
+      sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.channelId);
+      editingMessageId.value = null;
+      hoveredMessage.value = null;
+      showHoverMenu.value = false;
     } catch (error) {
       console.error('Failed to update message:', error);
-      // You might want to show an error message to the user here
     }
   }
 };

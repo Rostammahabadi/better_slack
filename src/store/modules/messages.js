@@ -18,7 +18,7 @@ const mutations = {
     state.error = error;
   },
   ADD_REACTION(state, { messageId, reaction, channelId }) {
-    const message = state.messagesByChannel[channelId].find(msg => msg._id === messageId);
+    let message = state.messagesByChannel[channelId].find(msg => msg._id === messageId);
     if (message) {
       message.reactions.push(reaction);
     }
@@ -40,12 +40,14 @@ const mutations = {
     }
     state.messagesByChannel[channelId].push(message);
   },
-  UPDATE_MESSAGE(state, { channelId, message }) {
+  UPDATE_MESSAGE(state, { channelId, messageId, message }) {
     if (state.messagesByChannel[channelId]) {
-      const index = state.messagesByChannel[channelId].findIndex(msg => msg._id === message._id);
-      if (index !== -1) {
-        state.messagesByChannel[channelId].splice(index, 1, message);
-      }
+      state.messagesByChannel[channelId] = state.messagesByChannel[channelId].map(msg => {
+        if (msg._id === messageId) {
+          return { ...msg, content: message };
+        }
+        return msg;
+      });
     }
   },
   DELETE_MESSAGE(state, { channelId, messageId }) {
@@ -164,7 +166,7 @@ const actions = {
   },
 
   async updateMessage({ commit }, message) {
-    const messageId = message.messageId;
+    const messageId = message._id;
     const token = message.token;
 
     const response = await fetch(
@@ -172,7 +174,8 @@ const actions = {
       {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(message)
       }
