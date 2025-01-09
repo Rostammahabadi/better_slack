@@ -12,7 +12,7 @@ export function useSocket(store) {
 
   const initSocket = (token) => {
     if (socket) return; // Prevent multiple socket instances
-    socket = io('http://localhost:3001', {
+    socket = io(process.env.VITE_SOCKET_URL, {
       autoConnect: false,
       withCredentials: true,
       auth: {
