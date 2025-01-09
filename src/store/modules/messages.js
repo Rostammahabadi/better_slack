@@ -17,8 +17,8 @@ const mutations = {
   SET_ERROR(state, error) {
     state.error = error;
   },
-  ADD_REACTION(state, { messageId, reaction, currentChannel }) {
-    const message = state.messagesByChannel[currentChannel].find(msg => msg._id === messageId);
+  ADD_REACTION(state, { messageId, reaction, channelId }) {
+    const message = state.messagesByChannel[channelId].find(msg => msg._id === messageId);
     if (message) {
       message.reactions.push(reaction);
     }
@@ -132,7 +132,8 @@ const actions = {
     }
 
     const addedReaction = await response.json();
-    commit('ADD_REACTION', { messageId, reaction: addedReaction, currentChannel });
+    commit('ADD_REACTION', { messageId, reaction: addedReaction, channelId: currentChannel });
+    return addedReaction;
   },
 
   async removeReaction({ commit }, { messageId, reactionId, token, currentChannel }) {

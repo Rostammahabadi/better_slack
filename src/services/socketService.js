@@ -12,7 +12,7 @@ export function useSocket(store) {
 
   const initSocket = (token) => {
     if (socket) return; // Prevent multiple socket instances
-    socket = io('http://localhost:3000', {
+    socket = io('http://localhost:3001', {
       autoConnect: false,
       withCredentials: true,
       auth: {
@@ -54,6 +54,18 @@ export function useSocket(store) {
       console.log(`${username} left the channel`);
       typingUsers.value.delete(username);
     });
+
+    socket.on('channel:reaction', ({ channelId, messageId, reaction }) => {
+      store.commit('messages/ADD_REACTION', { messageId, reaction, channelId });
+    });
+
+    socket.on('channel:reaction_removed', ({ channelId, messageId, reactionId }) => {
+      store.dispatch('messages/removeReaction', { messageId, reactionId, channelId });
+    });
+
+    socket.on('channel:edit_message', ({ messageId, message }) => {
+      store.dispatch('messages/editMessage', { messageId, message });
+    });
   };
 
   // Channel actions
@@ -73,6 +85,16 @@ export function useSocket(store) {
   const sendRealtimeMessage = (message) => {
     if (!socket) return;
     socket.emit('channel:message', message);
+  };
+
+  const sendReaction = (messageId, reaction, channelId) => {
+    if (!socket) return;
+    socket.emit('channel:reaction', { messageId, reaction, channelId });
+  };
+
+  const sendEditMessage = (messageId, message) => {
+    if (!socket) return;
+    socket.emit('channel:edit_message', { messageId, message });
   };
 
   const sendTyping = (isTyping, channelId) => {
@@ -111,6 +133,8 @@ export function useSocket(store) {
     joinChannel,
     leaveChannel,
     sendRealtimeMessage,
-    sendTyping
+    sendTyping,
+    sendReaction,
+    sendEditMessage
   };
 }

@@ -18,7 +18,7 @@
         </div>
       </div>
       
-      <MessageList :messages="currentMessages" />
+      <MessageList/>
 
       <div class="message-input">
         <TextEditor @send-message="sendMessage" />
@@ -29,7 +29,7 @@
 
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
@@ -44,20 +44,12 @@ const {
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
-const newMessage = ref('');
 // Computed properties from store
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
 
 const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
-const currentMessages = computed(() => {
-  if (currentChannel.value) {
-    return store.getters['messages/getMessagesByChannel'](currentChannel.value.id);
-  } else if (currentDirectMessage.value) {
-    return store.getters['messages/getDirectMessages'](currentDirectMessage.value.id);
-  }
-  return [];
-});
+
 const error = computed(() => 
   store.getters['workspaces/error'] || 
   store.getters['channels/error'] || 

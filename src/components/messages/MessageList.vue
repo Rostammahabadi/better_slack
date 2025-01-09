@@ -8,7 +8,11 @@
       @mouseleave="startHideMenu"
       :class="{ 'message-hovered': hoveredMessage?._id === message._id }"
     >
-      <img :src="message?.user?.avatarUrl" alt="User avatar" class="avatar" />
+      <img
+        :src="message.user.avatarUrl" 
+        :alt="`${message.user.displayName}'s avatar`" 
+        class="avatar"
+      />
       <div class="message-content">
         <div class="message-header">
           <span class="username">{{ message?.user?.displayName }}</span>
@@ -29,7 +33,7 @@
             :key="reaction.id" 
             class="reaction"
             :class="{ 'reaction-active': hasUserReacted(reaction) }"
-            @click="handleAddReaction(reaction.emoji, message._id)"
+            @click="handleRemoveReaction(reaction.emoji, message._id)"
           >
             {{ reaction.emoji }} {{ reaction.count }}
           </button>
@@ -53,7 +57,7 @@
 </template>
 
 <script setup>
-import { defineProps, ref, watch } from 'vue';
+import { ref, computed } from 'vue';
 import MessageHoverMenu from './MessageHoverMenu.vue';
 import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
@@ -63,25 +67,23 @@ const hoveredMessage = ref(null);
 const showHoverMenu = ref(false);
 const editingMessageId = ref(null);
 let hideMenuTimeout = null;
+import { useSocket } from '../../services/socketService';
 const store = useStore();
+const {
+  sendReaction,
+} = useSocket();
 
-const props = defineProps({
-  messages: {
-    type: Array,
-    required: true,
-    default: () => []
+const currentChannel = computed(() => store.getters['channels/currentChannel']);
+
+const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
+const messages = computed(() => {
+  if (currentChannel.value) {
+    return store.getters['messages/getMessagesByChannel'](currentChannel.value.id);
+  } else if (currentDirectMessage.value) {
+    return store.getters['messages/getDirectMessages'](currentDirectMessage.value.id);
   }
+  return [];
 });
-
-// Watch for changes in messages array
-watch(() => props.messages, () => {
-  // Wait for DOM update before scrolling
-  setTimeout(() => {
-    if (messageListRef.value) {
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight;
-    }
-  }, 0);
-}, { deep: true });
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -127,7 +129,7 @@ const handleEditComplete = async (messageData) => {
       });
       
       // Update the message in the local state
-      const messageToUpdate = props.messages.find(m => m._id === editingMessageId.value);
+      const messageToUpdate = messages.value.find(m => m._id === editingMessageId.value);
       if (messageToUpdate) {
         messageToUpdate.content = messageData.content;
       }
@@ -144,26 +146,24 @@ const handleEditComplete = async (messageData) => {
 const handleAddReaction = async (emoji, messageId) => {
   if (hoveredMessage.value) {
     const message = hoveredMessage.value;
-    const currentUserId = store.state.auth.user.user._id;
     const token = store.state.auth.token;
     const currentChannel = store.state.channels.currentChannel._id;
+    const addedReaction = await store.dispatch('messages/addReaction', { messageId: message._id, reaction: emoji, token, currentChannel });
+    sendReaction(message._id, addedReaction, currentChannel);
+  }
+};
 
-    // Check if the current user has already reacted with this emoji
-    const userReactionIndex = message.reactions.findIndex(
+const handleRemoveReaction = async (emoji, messageId) => {
+  const message = hoveredMessage.value;
+  const currentUserId = store.state.auth.user.user._id;
+  const token = store.state.auth.token;
+  const currentChannel = store.state.channels.currentChannel._id;
+  const userReactionIndex = message.reactions.findIndex(
       r => r.user === currentUserId && r.emoji === emoji
     );
-    if (userReactionIndex !== -1) {
-      await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: message.reactions[userReactionIndex]._id, token, currentChannel });
-      message.reactions.splice(userReactionIndex, 1);
-    } else {
-      // User has not reacted with this emoji, add the reaction
-      await store.dispatch('messages/addReaction', { messageId: message._id, reaction: emoji, token, currentChannel });
-    //   message.reactions.push({
-    //     id: Date.now(),
-    //     emoji: emoji,
-    //     user: { _id: currentUserId }
-    //   });
-    }
+  if (hoveredMessage.value) {
+    await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: message.reactions[userReactionIndex]._id, token, currentChannel });
+    message.reactions.splice(userReactionIndex, 1);
   }
 };
 
@@ -204,6 +204,7 @@ const hasUserReacted = (reaction) => {
   width: 36px;
   height: 36px;
   border-radius: 4px;
+  object-fit: cover;
 }
 
 .message-content {

@@ -1,12 +1,12 @@
 <template>
   <div class="login-container">
     <header class="header">
-      <img src="@/assets/slack-logo.svg" alt="Flack" class="logo" />
+      <img src="@/assets/slack-logo.svg" alt="ChatGenius" class="logo" />
     </header>
     
     <main class="main">
       <div class="container">
-        <h1>Sign in to Flack</h1>
+        <h1>Sign in to ChatGenius</h1>
         <p class="subtitle">We suggest using the email address you use at work.</p>
         
         <div class="auth-buttons">
@@ -64,7 +64,7 @@
 
     <footer class="footer">
       <p>
-        New to Flack? 
+        New to Slack Genius? 
         <router-link to="/signup">Create an account</router-link>
       </p>
     </footer>

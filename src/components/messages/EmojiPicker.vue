@@ -15,17 +15,6 @@
           v-model="searchQuery"
         />
       </div>
-      <div class="category-tabs">
-        <button 
-          v-for="category in categories" 
-          :key="category.id"
-          class="category-tab"
-          :class="{ active: activeCategory === category.id }"
-          @click="activeCategory = category.id"
-        >
-          <span class="category-icon">{{ category.icon }}</span>
-        </button>
-      </div>
     </div>
 
     <div class="emoji-sections">
