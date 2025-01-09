@@ -55,17 +55,17 @@ const actions = {
     }
   },
 
-  async sendInvites({ commit }, { workspaceId, emails, token }) {
+  async sendInvites({ commit }, { emails, token }) {
     commit('SET_LOADING', true);
     commit('CLEAR_ERROR');
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces/${workspaceId}/invites`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/invites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ emails })
+        body: JSON.stringify(emails)
       });
 
       if (!response.ok) {

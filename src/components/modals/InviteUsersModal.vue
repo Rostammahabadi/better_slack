@@ -63,17 +63,46 @@ const isValid = computed(() => {
   });
 });
 
+// Generate a cryptographically secure random token
+function generateInviteToken() {
+  const array = new Uint8Array(48);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode.apply(null, array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
 const handleSubmit = async () => {
   if (!isValid.value) return;
 
   const emailList = emails.value.split(/[,\s]+/)
-    .map(email => email.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(email => ({
+      email: email.trim().toLowerCase(),
+      isValid: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    }))
+    .filter(({ isValid }) => isValid)
+    .map(({ email }) => email);
+
+  // Create properly structured invites
+  const invites = emailList.map(email => {
+    const token = generateInviteToken();
+    return {
+      workspaceId: props.workspaceId,
+      invitedBy: store.getters['auth/currentUser']._id,
+      invitedEmail: email,
+      status: 'pending',
+      token,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      invitationUrl: `${import.meta.env.VITE_API_URL}/invite/${token}`
+    };
+  });
+  debugger;
 
   try {
     const result = await store.dispatch('invites/sendInvites', {
-      workspaceId: props.workspaceId,
-      emails: emailList,
+      invites,
       token: store.getters['auth/token']
     });
 
@@ -85,6 +114,9 @@ const handleSubmit = async () => {
     setTimeout(() => {
       showSuccess.value = false;
     }, 5000);
+
+    // Clear the input
+    emails.value = '';
 
     // Close the modal
     emit('close');

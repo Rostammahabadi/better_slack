@@ -5,7 +5,7 @@ import WorkspaceView from '../views/WorkspaceView.vue'
 import SignupView from '../views/SignupView.vue'
 import JoinView from '../views/JoinView.vue'
 import store from '../store'
-
+import InviteView from '../views/InviteView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -32,6 +32,11 @@ const router = createRouter({
       path: '/join',
       name: 'join',
       component: JoinView
+    },
+    {
+      path: '/invite/:token',
+      name: 'invite',
+      component: InviteView
     },
     {
       path: '/workspaces/:workspaceId',
