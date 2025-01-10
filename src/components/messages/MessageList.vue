@@ -39,6 +39,11 @@
           </button>
         </div>
         
+        <!-- Add Thread Reply Count -->
+        <div v-if="getThreadCount(message)" class="thread-count" @click="handleReply">
+          {{ getThreadCount(message) }} replies
+        </div>
+        
         <!-- Message Hover Menu -->
         <MessageHoverMenu
           v-if="showHoverMenu && hoveredMessage?._id === message._id"
@@ -47,6 +52,7 @@
           @menu-hover="cancelHideMenu"
           @menu-leave="startHideMenu"
           @edit="() => handleEdit(message)"
+          class="hover-menu-bottom-right"
         />
       </div>
     </div>
@@ -166,14 +172,18 @@ const handleRemoveReaction = async (emoji, messageId) => {
 
 const handleReply = () => {
   if (hoveredMessage.value) {
-    // TODO: Implement reply logic
-    console.log('Reply to message:', hoveredMessage.value.id);
+    store.dispatch('messages/setActiveThread', hoveredMessage.value);
   }
 };
 
 const hasUserReacted = (reaction) => {
   const currentUserId = store.state.auth.user.id;
   return reaction.users?.includes(currentUserId);
+};
+
+// Add thread-related computed and methods
+const getThreadCount = (message) => {
+  return store.getters['messages/getThreadReplies'](message._id)?.length || 0;
 };
 </script>
 
@@ -270,5 +280,28 @@ const hasUserReacted = (reaction) => {
 
 .message-edit {
   margin: 4px 0;
+}
+
+.hover-menu-bottom-right {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  transform: translateY(100%);
+}
+
+.thread-count {
+  display: inline-flex;
+  align-items: center;
+  color: #1264A3;
+  font-size: 12px;
+  margin-top: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.thread-count:hover {
+  background-color: rgba(18, 100, 163, 0.1);
+  text-decoration: underline;
 }
 </style>

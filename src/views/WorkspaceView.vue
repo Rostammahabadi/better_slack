@@ -18,7 +18,7 @@
         </div>
       </div>
       
-      <MessageList/>
+      <MessageList @reply="handleReply"/>
 
       <div class="message-input">
         <TextEditor @send-message="sendMessage" />
@@ -83,6 +83,9 @@ onMounted(async () => {
         await store.dispatch('messages/fetchMessages', {
           channelId: channel.id,
           token: token.value
+        });
+        store.dispatch('channels/setCurrentChannel', {
+          channel: store.getters['channels/getChannelById'](route.params.channelId),
         });
       }
     }

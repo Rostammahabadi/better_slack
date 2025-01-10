@@ -1,7 +1,11 @@
 const state = {
   messagesByChannel: {},
   isLoading: false,
-  error: null
+  error: null,
+  messages: [],
+  currentDirectMessage: null,
+  error: null,
+  activeThread: null
 };
 
 const mutations = {
@@ -11,15 +15,30 @@ const mutations = {
       [channelId]: messages
     };
   },
-  SET_LOADING(state, isLoading) {
-    state.isLoading = isLoading;
+  ADD_MESSAGE(state, message) {
+    state.messages.push(message);
+  },
+  UPDATE_MESSAGE(state, updatedMessage) {
+    const index = state.messages.findIndex(m => m._id === updatedMessage._id);
+    if (index !== -1) {
+      state.messages.splice(index, 1, updatedMessage);
+    }
+  },
+  SET_CURRENT_DIRECT_MESSAGE(state, dm) {
+    state.currentDirectMessage = dm;
   },
   SET_ERROR(state, error) {
     state.error = error;
   },
-  ADD_REACTION(state, { messageId, reaction, channelId }) {
-    let message = state.messagesByChannel[channelId].find(msg => msg._id === messageId);
+  SET_ACTIVE_THREAD(state, message) {
+    state.activeThread = message;
+  },
+  ADD_REACTION(state, { messageId, reaction }) {
+    const message = state.messages.find(m => m._id === messageId);
     if (message) {
+      if (!message.reactions) {
+        message.reactions = [];
+      }
       message.reactions.push(reaction);
     }
   },
@@ -60,6 +79,15 @@ const mutations = {
       state.messagesByChannel[message.channelId] = [];
     }
     state.messagesByChannel[message.channelId].push(message);
+  },
+  SET_LOADING(state, isLoading) {
+    state.isLoading = isLoading;
+  },
+  ADD_THREAD_REPLY(state, { channelId, message }) {
+    if (!state.messagesByChannel[channelId]) {
+      state.messagesByChannel[channelId] = [];
+    }
+    state.messagesByChannel[channelId].push(message);
   }
 };
 
@@ -90,7 +118,6 @@ const actions = {
       return messages;
     } catch (error) {
       commit('SET_ERROR', error.message);
-      console.error('Error fetching messages:', error);
       throw error;
     } finally {
       commit('SET_LOADING', false);
@@ -191,6 +218,43 @@ const actions = {
     if (channelId) {
       commit('DELETE_MESSAGE', { channelId, messageId });
     }
+  },
+
+  setActiveThread({ commit }, message) {
+    commit('SET_ACTIVE_THREAD', message);
+  },
+
+  async sendThreadReply({ commit }, { message, token }) {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/channels/${message.channelId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...message,
+            threadId: message.threadId
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to send thread reply');
+      }
+
+      const newMessage = await response.json();
+      commit('ADD_THREAD_REPLY', { 
+        channelId: message.channelId, 
+        message: newMessage 
+      });
+      return newMessage;
+    } catch (error) {
+      console.error('Error sending thread reply:', error);
+      throw error;
+    }
   }
 };
 
@@ -198,8 +262,16 @@ const getters = {
   getMessagesByChannel: (state) => (channelId) => {
     return state.messagesByChannel[channelId] || [];
   },
+  getThreadReplies: (state) => (threadId) => {
+    const allChannelMessages = Object.values(state.messagesByChannel)
+      .flat()
+      .filter(message => message.threadId === threadId)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    return allChannelMessages;
+  },
   isLoading: (state) => state.isLoading,
-  error: (state) => state.error
+  error: (state) => state.error,
+  activeThread: (state) => state.activeThread
 };
 
 export default {

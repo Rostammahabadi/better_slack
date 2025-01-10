@@ -143,6 +143,7 @@ const storeData = computed(() => ({
 }));
 
 const selectChannel = async (channel) => {
+    
     await store.dispatch('channels/setCurrentChannel', {
     channel,
     token: store.getters['auth/token']

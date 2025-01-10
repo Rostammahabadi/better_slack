@@ -96,7 +96,7 @@ const actions = {
     }
   },
 
-  setCurrentChannel({ commit }, { channel, token }) {
+  setCurrentChannel({ commit }, { channel }) {
     commit('SET_CURRENT_CHANNEL', channel);
   }
 };
