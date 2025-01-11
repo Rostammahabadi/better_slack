@@ -246,12 +246,22 @@ const closeAddWorkspaceModal = () => {
   newWorkspaceName.value = '';
 };
 
-const createWorkspace = () => {
-  store.dispatch('workspaces/createWorkspace', {
-    name: newWorkspaceName.value,
-    token: store.state.auth.token
-  });
-  closeAddWorkspaceModal();
+const createWorkspace = async () => {
+  try {
+    // Create the new workspace
+    const newWorkspace = await store.dispatch('workspaces/createWorkspace', {
+      name: newWorkspaceName.value,
+      token: store.state.auth.token
+    });
+
+    // Close the modal
+    closeAddWorkspaceModal();
+
+    // Navigate to the new workspace
+    await switchWorkspace(newWorkspace._id);
+  } catch (error) {
+    console.error('Error creating workspace:', error);
+  }
 };
 
 const handleClickOutside = (event) => {

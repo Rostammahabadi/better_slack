@@ -120,6 +120,7 @@ const actions = {
 
       const workspace = await response.json();
       commit('ADD_WORKSPACE', workspace);
+      return workspace;
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;

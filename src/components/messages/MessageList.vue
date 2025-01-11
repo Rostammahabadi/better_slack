@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import MessageHoverMenu from './MessageHoverMenu.vue';
 import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
@@ -185,6 +185,33 @@ const hasUserReacted = (reaction) => {
 const getThreadCount = (message) => {
   return store.getters['messages/getThreadReplies'](message._id)?.length || 0;
 };
+
+// Add scrollToBottom function
+const scrollToBottom = () => {
+  if (messageListRef.value) {
+    messageListRef.value.scrollTop = messageListRef.value.scrollHeight;
+  }
+};
+
+// Watch for changes in messages to scroll to bottom
+watch(() => messages.value, () => {
+  // Use nextTick to ensure DOM is updated before scrolling
+  nextTick(() => {
+    scrollToBottom();
+  });
+}, { deep: true });
+
+// Watch for changes in currentChannel to scroll to bottom
+watch(() => currentChannel.value, () => {
+  nextTick(() => {
+    scrollToBottom();
+  });
+});
+
+onMounted(() => {
+  scrollToBottom();
+
+});
 </script>
 
 <style scoped>

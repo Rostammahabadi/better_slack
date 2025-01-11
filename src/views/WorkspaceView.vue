@@ -18,7 +18,7 @@
         </div>
       </div>
       
-      <MessageList @reply="handleReply"/>
+      <MessageList/>
 
       <div class="message-input">
         <TextEditor @send-message="sendMessage" />
