@@ -33,8 +33,8 @@ const mutations = {
   SET_ACTIVE_THREAD(state, message) {
     state.activeThread = message;
   },
-  ADD_REACTION(state, { messageId, reaction }) {
-    const message = state.messages.find(m => m._id === messageId);
+  ADD_REACTION(state, { messageId, reaction, channelId }) {
+    const message = state.messagesByChannel[channelId].find(m => m._id === messageId);
     if (message) {
       if (!message.reactions) {
         message.reactions = [];
