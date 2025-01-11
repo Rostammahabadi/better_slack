@@ -12,6 +12,9 @@ const mutations = {
   SET_WORKSPACES(state, workspaces) {
     state.workspaces = workspaces;
   },
+  ADD_WORKSPACE(state, workspace) {
+    state.workspaces.push(workspace);
+  },
   SET_LOADING(state, loading) {
     state.loading = loading;
   },
@@ -90,6 +93,33 @@ const actions = {
 
       const result = await response.json();
       return result;
+    } catch (error) {
+      commit('SET_ERROR', error.message);
+      throw error;
+    } finally {
+      commit('SET_LOADING', false);
+    }
+  },
+
+  async createWorkspace({ commit }, { name, token }) {
+    commit('SET_LOADING', true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create workspace');
+      }
+
+      const workspace = await response.json();
+      commit('ADD_WORKSPACE', workspace);
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;

@@ -2,8 +2,37 @@
   <nav class="workspace-nav">
     <div class="nav-top">
       <!-- Workspace Icon -->
-      <div class="nav-item workspace-icon">
+      <div class="nav-item workspace-icon" @click="toggleWorkspaceMenu" ref="workspaceMenuTrigger">
         <div class="square-icon">T</div>
+
+        <!-- Workspace Menu Popup -->
+        <div v-if="showWorkspaceMenu" class="workspace-menu" ref="workspaceMenu">
+          <div class="workspace-menu-header">
+            <h3>Workspaces</h3>
+          </div>
+          
+          <div class="workspace-list">
+            <div 
+              v-for="workspace in workspaces" 
+              :key="workspace._id"
+              class="workspace-item"
+              :class="{ 'active': workspace._id === currentWorkspace._id }"
+              @click="switchWorkspace(workspace._id)"
+            >
+              <div class="workspace-icon-small">{{ workspace.name[0] }}</div>
+              <div class="workspace-details">
+                <div class="workspace-name">{{ workspace.name }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="workspace-menu-footer">
+            <button class="add-workspace-button" @click="addWorkspace">
+              <span class="add-icon">+</span>
+              Add a workspace
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Home -->
@@ -126,6 +155,31 @@
         </div>
       </div>
     </div>
+
+    <!-- Add Workspace Modal -->
+    <div v-if="showAddWorkspaceModal" class="modal-overlay" @click="closeAddWorkspaceModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>Create a workspace</h2>
+          <button class="close-button" @click="closeAddWorkspaceModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="workspace-name">Workspace name</label>
+            <input 
+              type="text" 
+              id="workspace-name" 
+              v-model="newWorkspaceName"
+              placeholder="Ex: Acme Marketing"
+              class="workspace-input"
+            >
+          </div>
+          <button class="create-workspace-button" @click="createWorkspace">
+            Create a new workspace
+          </button>
+        </div>
+      </div>
+    </div>
   </nav>
 </template>
 
@@ -139,15 +193,48 @@ const auth0 = inject('auth0');
 const store = useStore();
 const router = useRouter();
 const showUserMenu = ref(false);
+const showWorkspaceMenu = ref(false);
 const userMenuTrigger = ref(null);
 const userMenu = ref(null);
+const workspaceMenuTrigger = ref(null);
+const showAddWorkspaceModal = ref(false);
+const newWorkspaceName = ref('');
 
 
 const workspace = computed(() => store.getters['workspaces/currentWorkspace']);
+const workspaces = computed(() => store.getters['workspaces/workspaces']);
+const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const user = computed(() => store.getters['auth/currentUser']);
 const userAvatar = user.value.picture || user.value.avatarUrl;
-const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value;
+
+const toggleWorkspaceMenu = () => {
+  showWorkspaceMenu.value = !showWorkspaceMenu.value;
+  if (showWorkspaceMenu.value) {
+    showUserMenu.value = false;
+  }
+};
+
+const switchWorkspace = (workspaceId) => {
+  router.push(`/workspaces/${workspaceId}`);
+  showWorkspaceMenu.value = false;
+};
+
+const addWorkspace = () => {
+  showWorkspaceMenu.value = false;
+  showAddWorkspaceModal.value = true;
+};
+
+const closeAddWorkspaceModal = () => {
+  showAddWorkspaceModal.value = false;
+  newWorkspaceName.value = '';
+};
+
+const createWorkspace = () => {
+  store.dispatch('workspaces/createWorkspace', {
+    name: newWorkspaceName.value,
+    token: store.state.auth.token
+  });
+  closeAddWorkspaceModal();
 };
 
 const handleClickOutside = (event) => {
@@ -155,6 +242,11 @@ const handleClickOutside = (event) => {
       userMenuTrigger.value && 
       !userMenuTrigger.value.contains(event.target)) {
     showUserMenu.value = false;
+  }
+  if (showWorkspaceMenu.value && 
+      workspaceMenuTrigger.value && 
+      !workspaceMenuTrigger.value.contains(event.target)) {
+    showWorkspaceMenu.value = false;
   }
 };
 
@@ -387,5 +479,222 @@ onUnmounted(() => {
 .sign-out:hover {
   color: #E01E5A;
   background-color: rgba(224, 30, 90, 0.1);
+}
+
+.workspace-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 280px;
+  background-color: #1A1D21;
+  border: 1px solid #4B4B4B;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.workspace-menu-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #4B4B4B;
+}
+
+.workspace-menu-header h3 {
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.workspace-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.workspace-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  gap: 12px;
+}
+
+.workspace-item:hover {
+  background-color: #27242C;
+}
+
+.workspace-item.active {
+  background-color: #1264A3;
+}
+
+.workspace-icon-small {
+  width: 36px;
+  height: 36px;
+  background-color: #4B4B4B;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.workspace-details {
+  flex: 1;
+}
+
+.workspace-name {
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.workspace-url {
+  color: #ABABAD;
+  font-size: 13px;
+}
+
+.workspace-menu-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #4B4B4B;
+}
+
+.add-workspace-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: transparent;
+  border: none;
+  color: #1264A3;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.add-workspace-button:hover {
+  background-color: rgba(18, 100, 163, 0.1);
+}
+
+.add-icon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.nav-item.workspace-icon {
+  position: relative;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background-color: #1A1D21;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  border: 1px solid #4B4B4B;
+}
+
+.modal-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid #4B4B4B;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  color: #FFFFFF;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #ABABAD;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: #FFFFFF;
+}
+
+.modal-body {
+  padding: 28px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.workspace-input {
+  width: 100%;
+  padding: 12px;
+  background-color: #222529;
+  border: 1px solid #4B4B4B;
+  border-radius: 4px;
+  color: #FFFFFF;
+  font-size: 15px;
+}
+
+.workspace-input:focus {
+  outline: none;
+  border-color: #1264A3;
+  box-shadow: 0 0 0 4px rgba(18, 100, 163, 0.1);
+}
+
+.workspace-input::placeholder {
+  color: #ABABAD;
+}
+
+.create-workspace-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #007a5a;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.create-workspace-button:hover {
+  background-color: #006c4f;
+}
+
+.create-workspace-button:active {
+  background-color: #005e44;
 }
 </style> 
