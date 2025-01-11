@@ -260,7 +260,8 @@ const actions = {
 
 const getters = {
   getMessagesByChannel: (state) => (channelId) => {
-    return state.messagesByChannel[channelId] || [];
+    return (state.messagesByChannel[channelId] || [])
+      .filter(message => !message.threadId);
   },
   getThreadReplies: (state) => (threadId) => {
     const allChannelMessages = Object.values(state.messagesByChannel)
