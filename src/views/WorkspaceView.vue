@@ -29,7 +29,7 @@
 
 
 <script setup>
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
@@ -39,7 +39,10 @@ import { useSocket } from '../services/socketService';
 const {
   joinChannel,
   sendRealtimeMessage,
-  connect
+  connect,
+  sendWorkspaceJoined,
+  sendWorkspaceLeft,
+  leaveChannel
 } = useSocket();
 
 const route = useRoute();
@@ -67,6 +70,9 @@ onMounted(async () => {
       workspaceId, 
       token: token.value 
     });
+
+    // Notify that we've joined the workspace
+    sendWorkspaceJoined(workspaceId, currentUser.value);
 
     store.dispatch('workspaces/fetchWorkspaces', token.value);
     
@@ -98,9 +104,18 @@ onMounted(async () => {
   }
 });
 
+onUnmounted(() => {
+  // Notify that we're leaving the workspace
+  if (currentWorkspace.value) {
+    sendWorkspaceLeft(currentWorkspace.value._id, currentUser.value);
+  }
+});
+
 // Watch for channel changes to update URL and load messages
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
+  if (route.params.channelId) {
     joinChannel(newChannel, currentUser.value);
+  }
   if (newChannel && newChannel !== oldChannel) {
     const channel = store.getters['channels/getChannelById'](newChannel);   
     // Fetch messages for the new channel
@@ -114,6 +129,11 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
 watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => {
   if (newWorkspaceId && newWorkspaceId !== oldWorkspaceId) {
     try {
+      // Leave current channel if one is active
+      if (currentChannel.value?._id) {
+        leaveChannel(currentChannel.value._id);
+      }
+
       // Fetch workspace data
       await store.dispatch('workspaces/fetchWorkspace', {
         workspaceId: newWorkspaceId,

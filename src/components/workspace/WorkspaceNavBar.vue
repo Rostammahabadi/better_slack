@@ -187,6 +187,7 @@
 import { ref, computed, onMounted, onUnmounted, inject } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { useSocket } from '../../services/socketService';
 
 const auth0 = inject('auth0');
 
@@ -200,6 +201,11 @@ const workspaceMenuTrigger = ref(null);
 const showAddWorkspaceModal = ref(false);
 const newWorkspaceName = ref('');
 
+const {
+  sendWorkspaceJoined,
+  sendWorkspaceLeft,
+  leaveChannel
+} = useSocket();
 
 const workspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const workspaces = computed(() => store.getters['workspaces/workspaces']);
@@ -216,6 +222,16 @@ const toggleWorkspaceMenu = () => {
 
 const switchWorkspace = async (workspaceId) => {
   try {
+    // Leave current channel if one is active
+    if (store.getters['channels/currentChannel']?._id) {
+      leaveChannel(store.getters['channels/currentChannel']._id);
+    }
+
+    // Notify that we're leaving the current workspace
+    if (currentWorkspace.value) {
+      sendWorkspaceLeft(currentWorkspace.value._id, user.value);
+    }
+
     // Fetch the workspace data
     await store.dispatch('workspaces/fetchWorkspace', {
       workspaceId,
@@ -231,6 +247,9 @@ const switchWorkspace = async (workspaceId) => {
     // Navigate to the workspace
     router.push(`/workspaces/${workspaceId}`);
     showWorkspaceMenu.value = false;
+
+    // Notify that we've joined the new workspace
+    sendWorkspaceJoined(workspaceId, user.value);
   } catch (error) {
     console.error('Error switching workspace:', error);
   }

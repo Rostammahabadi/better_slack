@@ -124,6 +124,11 @@ export function useSocket(store) {
     socket.emit('workspace:join', workspaceId, user._id);
   };
 
+  const sendWorkspaceLeft = (workspaceId, user) => {
+    if (!socket) return;
+    socket.emit('workspace:leave', workspaceId, user._id);
+  };
+
   // Connect/Disconnect methods
   const connect = (token) => {
     initSocket(token);
@@ -157,6 +162,7 @@ export function useSocket(store) {
     sendEditMessage,
     sendReactionRemoved,
     sendWorkspaceJoined,
+    sendWorkspaceLeft,
     sendChannelCreated
   };
 }
