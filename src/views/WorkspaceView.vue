@@ -44,7 +44,7 @@
       <MessageList/>
 
       <div class="message-input">
-        <TextEditor @send-message="sendMessage" />
+        <TextEditor @send-message="sendMessage" :placeholder="currentChannel ? `Message #${currentChannel.name}` : 'Message'" />
       </div>
     </div>
   </WorkspaceLayout>

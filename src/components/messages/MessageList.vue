@@ -22,6 +22,7 @@
           <TextEditor 
             :message="message"
             @send-message="handleEditComplete"
+            @cancel="handleCancelEdit"
           />
         </div>
         <div v-else class="message-text">
@@ -125,6 +126,12 @@ const handleEdit = (message) => {
   }
 };
 
+const handleCancelEdit = () => {
+  editingMessageId.value = null;
+  hoveredMessage.value = null;
+  showHoverMenu.value = false;
+};
+
 const handleEditComplete = async (messageData) => {
   if (editingMessageId.value) {
     try {
@@ -210,7 +217,6 @@ watch(() => currentChannel.value, () => {
 
 onMounted(() => {
   scrollToBottom();
-
 });
 </script>
 
@@ -228,6 +234,7 @@ onMounted(() => {
   padding: 4px 8px;
   margin: -4px -8px 16px -8px;
   border-radius: 6px;
+  position: relative;
 }
 
 .message-hovered {
@@ -244,6 +251,7 @@ onMounted(() => {
 .message-content {
   flex: 1;
   position: relative;
+  min-height: 36px;
 }
 
 .message-header {
@@ -311,9 +319,12 @@ onMounted(() => {
 
 .hover-menu-bottom-right {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  transform: translateY(100%);
+  top: -16px;
+  right: 8px;
+  z-index: 100;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
 }
 
 .thread-count {

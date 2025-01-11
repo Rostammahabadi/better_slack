@@ -1,45 +1,71 @@
 <template>
-  <div class="editor-container">
-    <div class="toolbar top-toolbar">
-      <button 
-        v-for="(icon, index) in topRowIcons" 
-        :key="index" 
-        class="toolbar-button"
-        @click="handleFormatClick(icon)"
-      >
-        <component :is="icon" />
-      </button>
+  <div class="chat-container">
+    <!-- Messages Area -->
+    <div class="messages-area">
+      <div v-for="message in messages" :key="message.id" class="message">
+        <img :src="message.avatar" :alt="message.user" class="message-avatar" />
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-username">{{ message.user }}</span>
+            <span class="message-timestamp">{{ message.timestamp }}</span>
+          </div>
+          <p class="message-text">{{ message.content }}</p>
+          <div v-if="message.reactions" class="message-reactions">
+            <div v-for="reaction in message.reactions" 
+                 :key="reaction.emoji"
+                 class="reaction-badge">
+              <span>{{ reaction.emoji }}</span>
+              <span class="reaction-count">{{ reaction.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="editor-content">
-      <textarea
-        v-model="messageText"
-        rows="3"
-        :placeholder="message ? 'Edit your message' : 'Start a new message'"
-        class="message-input"
-        @keydown.enter.prevent="handleSend"
-        @keydown.enter.shift.exact="messageText += '\n'"
-        @paste="handlePaste"
-        @drop.prevent="handleDrop"
-      ></textarea>
-      <div class="toolbar bottom-toolbar">
-        <div class="toolbar-left">
+
+    <!-- Message Input -->
+    <div class="input-container">
+      <div class="input-wrapper">
+        <!-- Top Formatting Tools -->
+        <div class="formatting-tools">
           <button 
-            v-for="(icon, index) in bottomRowIcons" 
-            :key="index"
-            class="toolbar-button"
-            @click="handleActionClick(icon)"
+            v-for="(icon, index) in topRowIcons" 
+            :key="index" 
+            class="format-button"
+            @click="handleFormatClick(icon)"
           >
-            <component :is="icon" />
+            <component :is="icon" class="tool-icon" />
           </button>
         </div>
-        <div class="toolbar-right" v-show="messageText.trim()">
-          <button 
-            class="send-button"
-            @click="handleSend"
-            :disabled="!messageText.trim()"
-          >
-            {{ message ? 'Save Changes' : 'Send' }}
-          </button>
+        
+        <!-- Text Input and Bottom Tools -->
+        <div class="text-input-container">
+          <textarea 
+            v-model="messageText"
+            rows="1"
+            :placeholder="placeholder"
+            class="text-input"
+            @keydown.enter.prevent="handleSend"
+            @keydown.enter.shift.exact="messageText += '\n'"
+            @paste="handlePaste"
+            @drop.prevent="handleDrop"
+          ></textarea>
+          <div class="input-actions">
+            <div class="action-buttons-right" v-show="messageText.trim()">
+              <button 
+                class="cancel-button"
+                @click="handleCancel"
+              >
+                Cancel
+              </button>
+              <button 
+                class="send-button"
+                @click="handleSend"
+                :disabled="!messageText.trim()"
+              >
+                {{ message ? 'Save Changes' : 'Send' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -58,6 +84,11 @@ const props = defineProps({
     type: Object,
     required: false,
     default: null
+  },
+  placeholder: {
+    type: String,
+    required: false,
+    default: 'Message'
   }
 });
 const store = useStore();
@@ -66,9 +97,15 @@ const attachments = ref(props.message?.attachments || []);
 const replyToThread = ref(props.message?.threadId || null);
 
 const topRowIcons = [Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, Code, Quote];
-const bottomRowIcons = [Plus, Type, Smile, AtSign, Image, Mic, PenTool];
 
-const emit = defineEmits(['send-message', 'edit-message']);
+const emit = defineEmits(['send-message', 'edit-message', 'cancel']);
+
+const handleCancel = () => {
+  messageText.value = '';
+  attachments.value = [];
+  replyToThread.value = null;
+  emit('cancel');
+};
 
 const handleSend = () => {
   if (!messageText.value.trim()) return;
@@ -297,8 +334,37 @@ const handleActionClick = async (actionType) => {
   gap: 8px;
 }
 
+.input-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.action-buttons-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cancel-button {
+  background: none;
+  border: none;
+  color: #1264A3;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-button:hover {
+  background-color: rgba(18, 100, 163, 0.1);
+}
+
 .send-button {
-  background-color: #2c974b;
+  background-color: #007a5a;
   color: white;
   border: none;
   padding: 6px 16px;
@@ -310,7 +376,7 @@ const handleActionClick = async (actionType) => {
 }
 
 .send-button:hover {
-  background-color: #238636;
+  background-color: #006c4f;
 }
 
 .send-button:disabled {
@@ -343,6 +409,82 @@ const handleActionClick = async (actionType) => {
 
 /* Ensure proper contrast for disabled state */
 .toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.text-input-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.text-input {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  color: #ffffff;
+  resize: none;
+  padding: 8px;
+  min-height: 40px;
+}
+
+.text-input::placeholder {
+  color: #9ca3af;
+}
+
+.text-input:focus {
+  outline: none;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 8px 8px;
+}
+
+.action-buttons-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cancel-button {
+  background: none;
+  border: none;
+  color: #1264A3;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-button:hover {
+  background-color: rgba(18, 100, 163, 0.1);
+}
+
+.send-button {
+  background-color: #007a5a;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.send-button:hover {
+  background-color: #006c4f;
+}
+
+.send-button:disabled {
+  background-color: #238636;
   opacity: 0.5;
   cursor: not-allowed;
 }
