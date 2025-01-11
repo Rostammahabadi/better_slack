@@ -3,7 +3,30 @@
     {{ error }}
   </div>
   <WorkspaceLayout v-else>
-    <div class="channel-content">
+    <div 
+      class="channel-content"
+      @dragenter.prevent="handleDragEnter"
+      @dragleave.prevent="handleDragLeave"
+      @dragover.prevent
+      @drop.prevent="handleDrop"
+    >
+      <!-- File Upload Overlay -->
+      <div v-if="isDraggingFile" class="file-upload-overlay">
+        <div class="upload-indicator">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" width="48" height="48">
+              <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            Upload to {{ currentChannel?.name || currentWorkspace?.name }}
+          </div>
+          <div class="upload-subtext">
+            Hold Shift to share immediately
+          </div>
+        </div>
+      </div>
+
       <div class="channel-header">
         <div class="channel-info">
           <h2 class="channel-name">
@@ -29,7 +52,7 @@
 
 
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
@@ -204,6 +227,33 @@ const sendMessage = async (messageData) => {
     console.error('Failed to send message:', error);
   }
 };
+
+// Add drag state
+const isDraggingFile = ref(false);
+let dragCounter = 0;
+
+// Drag event handlers
+const handleDragEnter = (e) => {
+  dragCounter++;
+  if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+    isDraggingFile.value = true;
+  }
+};
+
+const handleDragLeave = () => {
+  dragCounter--;
+  if (dragCounter === 0) {
+    isDraggingFile.value = false;
+  }
+};
+
+const handleDrop = (e) => {
+  dragCounter = 0;
+  isDraggingFile.value = false;
+  // Handle file drop here
+  const files = Array.from(e.dataTransfer.files);
+  // TODO: Implement file upload logic
+};
 </script>
 
 <style scoped>
@@ -222,6 +272,7 @@ const sendMessage = async (messageData) => {
 }
 
 .channel-content {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -358,6 +409,44 @@ textarea:focus {
 }
 
 .prefix {
+  color: #ABABAD;
+}
+
+.file-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(26, 29, 33, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.upload-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #FFFFFF;
+}
+
+.upload-icon {
+  width: 64px;
+  height: 64px;
+  color: #1264A3;
+  opacity: 0.9;
+}
+
+.upload-text {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.upload-subtext {
+  font-size: 15px;
   color: #ABABAD;
 }
 </style> 

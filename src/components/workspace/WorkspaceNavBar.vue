@@ -283,6 +283,13 @@ const createWorkspace = async () => {
   }
 };
 
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value;
+  if (showUserMenu.value) {
+    showWorkspaceMenu.value = false;
+  }
+};
+
 const handleClickOutside = (event) => {
   if (showUserMenu.value && 
       userMenuTrigger.value && 
@@ -349,6 +356,7 @@ onUnmounted(() => {
   gap: 4px;
   cursor: pointer;
   padding: 4px 0;
+  position: relative;
 }
 
 .nav-item:hover .icon-container {
@@ -403,11 +411,13 @@ onUnmounted(() => {
 
 .profile {
   position: relative;
+  width: 36px;
+  height: 36px;
 }
 
 .profile-img {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 4px;
   object-fit: cover;
 }
