@@ -55,7 +55,7 @@ const actions = {
     }
   },
 
-  async sendInvites({ commit }, { emails, token }) {
+  async sendInvites({ commit }, { invites, token }) {
     commit('SET_LOADING', true);
     commit('CLEAR_ERROR');
     try {
@@ -65,7 +65,7 @@ const actions = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(emails)
+        body: JSON.stringify(invites)
       });
 
       if (!response.ok) {

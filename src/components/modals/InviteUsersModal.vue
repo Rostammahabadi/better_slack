@@ -98,7 +98,6 @@ const handleSubmit = async () => {
       invitationUrl: `${import.meta.env.VITE_API_URL}/invite/${token}`
     };
   });
-  debugger;
 
   try {
     const result = await store.dispatch('invites/sendInvites', {

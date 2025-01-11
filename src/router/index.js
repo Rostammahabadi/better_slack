@@ -34,7 +34,7 @@ const router = createRouter({
       component: JoinView
     },
     {
-      path: '/invite/:token',
+      path: '/invites/:token',
       name: 'invite',
       component: InviteView
     },
