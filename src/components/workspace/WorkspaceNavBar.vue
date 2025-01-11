@@ -214,9 +214,26 @@ const toggleWorkspaceMenu = () => {
   }
 };
 
-const switchWorkspace = (workspaceId) => {
-  router.push(`/workspaces/${workspaceId}`);
-  showWorkspaceMenu.value = false;
+const switchWorkspace = async (workspaceId) => {
+  try {
+    // Fetch the workspace data
+    await store.dispatch('workspaces/fetchWorkspace', {
+      workspaceId,
+      token: store.state.auth.token
+    });
+
+    // Fetch channels for the new workspace
+    await store.dispatch('channels/fetchChannels', {
+      workspaceId,
+      token: store.state.auth.token
+    });
+
+    // Navigate to the workspace
+    router.push(`/workspaces/${workspaceId}`);
+    showWorkspaceMenu.value = false;
+  } catch (error) {
+    console.error('Error switching workspace:', error);
+  }
 };
 
 const addWorkspace = () => {

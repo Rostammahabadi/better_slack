@@ -67,6 +67,8 @@ onMounted(async () => {
       workspaceId, 
       token: token.value 
     });
+
+    store.dispatch('workspaces/fetchWorkspaces', token.value);
     
     // Fetch channels for the workspace
     await store.dispatch('channels/fetchChannels', {
@@ -109,6 +111,29 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
   }
 });
 
+watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => {
+  if (newWorkspaceId && newWorkspaceId !== oldWorkspaceId) {
+    try {
+      // Fetch workspace data
+      await store.dispatch('workspaces/fetchWorkspace', {
+        workspaceId: newWorkspaceId,
+        token: token.value
+      });
+
+      // Fetch channels for the new workspace
+      await store.dispatch('channels/fetchChannels', {
+        workspaceId: newWorkspaceId,
+        token: token.value
+      });
+
+      // Clear current channel and messages when switching workspaces
+      store.dispatch('channels/setCurrentChannel', { channel: null });
+      store.commit('messages/SET_MESSAGES', { channelId: null, messages: [] });
+    } catch (error) {
+      console.error('Error loading workspace:', error);
+    }
+  }
+});
 
 // Send message function
 const sendMessage = async (messageData) => {
