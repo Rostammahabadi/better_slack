@@ -32,7 +32,7 @@ const initAuth0 = async () => {
   
   try {
     // Check if we're in the callback page
-    if (window.location.pathname === '/callback') {
+    if (window.location.pathname === '/callback' || window.location.pathname.includes('/invite')) {
       // Let the callback page handle the authentication
       app.mount('#app');
       return;

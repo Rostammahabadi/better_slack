@@ -75,10 +75,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { inject } from 'vue';
+import { ref, onMounted, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
+
 
 const router = useRouter();
 const store = useStore();

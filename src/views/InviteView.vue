@@ -1,15 +1,20 @@
 <template>
-  <div class="invite-view">
-    <div v-if="loading" class="loading">
-      Loading...
+  <div class="invite-container">
+    <div v-if="isLoading" class="loading">
+      Verifying invitation...
     </div>
     <div v-else-if="error" class="error">
       {{ error }}
     </div>
     <div v-else class="invite-content">
-      <h1>You've been invited!</h1>
-      <p>Please sign in or create an account to join the workspace</p>
-      <button @click="handleAuth" class="auth-button">
+      <img src="@/assets/slack-logo.svg" alt="ChatGenius" class="logo" />
+      <h1>Join {{ workspaceName }}</h1>
+      <p class="subtitle">You've been invited to join this workspace on ChatGenius</p>
+      <button 
+        class="continue-button"
+        @click="handleAuth"
+        :disabled="isLoading"
+      >
         Continue with Auth0
       </button>
     </div>
@@ -17,112 +22,100 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useStore } from 'vuex';
+import { ref, inject } from 'vue';
+import { useRoute } from 'vue-router';
+
 
 const route = useRoute();
-const router = useRouter();
-const store = useStore();
-const loading = ref(true);
+const auth0 = inject('auth0');
+
+const isLoading = ref(false);
 const error = ref(null);
-const inviteData = ref(null);
+const workspaceName = ref('Workspace');
 
 const handleAuth = async () => {
   try {
-    // Store invite data in localStorage
-    if (inviteData.value) {
-      localStorage.setItem('pendingInvite', JSON.stringify({
-        token: route.params.token,
-        workspaceId: inviteData.value.workspaceId,
-        email: inviteData.value.invitedEmail
-      }));
-    }
-
-    // Redirect to Auth0 login with invite-specific options
-    await store.dispatch('auth/login', {
-      invitation: true,
+    isLoading.value = true;
+    
+    // Store the invite token in Auth0's app state
+    await auth0.loginWithRedirect({
       appState: {
-        returnTo: '/auth/callback',
         inviteToken: route.params.token
       }
     });
   } catch (err) {
-    error.value = 'Failed to initiate authentication. Please try again.';
     console.error('Auth error:', err);
+    error.value = 'Failed to initiate authentication. Please try again.';
+    isLoading.value = false;
   }
 };
-
-onMounted(async () => {
-  try {
-    // Validate and get invite details
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/invites/validate/${route.params.token}`);
-    
-    if (!response.ok) {
-      throw new Error('This invite link is invalid or has expired');
-    }
-    
-    const data = await response.json();
-    inviteData.value = data;
-    loading.value = false;
-  } catch (err) {
-    error.value = err.message;
-    loading.value = false;
-  }
-});
 </script>
 
 <style scoped>
-.invite-view {
-  height: 100vh;
+.invite-container {
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 2rem;
   background-color: #1A1D21;
-  color: #fff;
 }
 
 .invite-content {
+  max-width: 480px;
+  width: 100%;
   text-align: center;
   padding: 2rem;
   background-color: #222529;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  height: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 h1 {
+  color: #FFFFFF;
+  font-size: 2rem;
   margin-bottom: 1rem;
-  font-size: 1.8rem;
 }
 
-p {
+.subtitle {
+  color: #ABABAD;
   margin-bottom: 2rem;
-  color: #9da3a7;
 }
 
-.auth-button {
-  background-color: #007a5a;
+.continue-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #007A5A;
   color: white;
   border: none;
-  padding: 12px 24px;
   border-radius: 4px;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
-.auth-button:hover {
+.continue-button:hover:not(:disabled) {
   background-color: #006c4f;
+}
+
+.continue-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .loading, .error {
   text-align: center;
-  padding: 2rem;
-  background-color: #222529;
-  border-radius: 8px;
+  color: #ABABAD;
+  font-size: 1.2rem;
 }
 
 .error {
-  color: #e01e5a;
+  color: #E01E5A;
 }
 </style>
