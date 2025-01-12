@@ -52,11 +52,23 @@
         <button class="add-button">+</button>
       </div>
       <div class="section-items">
-        <div class="section-item">
-          <span class="status-icon">🟢</span>
-          <span>{{ storeData.currentUser.displayName }}</span>
-          <span class="you-label" v-if="storeData.workspace?.user_role === 'admin'">you</span>
+
+        <!-- Workspace Members -->
+        <div 
+          v-for="member in storeData.workspace?.members || []" 
+          :key="member._id"
+          class="section-item"
+          v-if="member?.userId?._id !== storeData.currentUser?._id"
+        >
+          <img 
+            :src="member.userId?.avatarUrl" 
+            :alt="member.userId?.displayName"
+            class="user-avatar"
+          />
+          <span>{{ member.userId?.displayName }}</span>
+          <span v-if="member.role === 'admin'" class="role-label">admin</span>
         </div>
+
         <!-- Pending Invites -->
         <div 
           v-for="invite in storeData.sentInvites" 
@@ -67,6 +79,7 @@
           <span>{{ invite.invitedEmail.split('@')[0] }}</span>
           <span class="pending-label">pending</span>
         </div>
+
         <button class="invite-button" @click="showInviteModal = true">
           <i class="fas fa-user-plus"></i> Invite People to Workspace
         </button>
@@ -134,13 +147,17 @@ const showContextMenu = (event, channel) => {
 };
 
 // Single computed property for store data to reduce reactivity triggers
-const storeData = computed(() => ({
-  channels: store.getters['channels/channels'],
-  currentChannel: store.getters['channels/currentChannel'],
-  sentInvites: store.getters['invites/sentInvites'],
-  currentUser: store.getters['auth/currentUser'],
-  workspace: store.getters['workspaces/currentWorkspace']
-}));
+const storeData = computed(() => {
+  const data = {
+    channels: store.getters['channels/channels'],
+    currentChannel: store.getters['channels/currentChannel'],
+    sentInvites: store.getters['invites/sentInvites'],
+    currentUser: store.getters['auth/currentUser'],
+    workspace: store.getters['workspaces/currentWorkspace']
+  };
+  console.log('Workspace members:', data.workspace?.members);
+  return data;
+});
 
 const selectChannel = async (channel) => {
     
@@ -321,5 +338,23 @@ const onChannelCreated = (channel) => {
 
 .invite-button i {
   font-size: 12px;
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-right: 8px;
+  object-fit: cover;
+  background-color: #4B4B4B;
+}
+
+.role-label {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #ABABAD;
+  background-color: #363636;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 </style> 
