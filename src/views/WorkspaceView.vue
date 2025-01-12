@@ -118,6 +118,7 @@ onMounted(async () => {
         store.dispatch('channels/setCurrentChannel', {
           channel: store.getters['channels/getChannelById'](route.params.channelId),
         });
+        joinChannel(channel.id, currentUser.value);
       }
     }
   } catch (err) {
