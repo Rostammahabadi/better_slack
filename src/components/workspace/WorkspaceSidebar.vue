@@ -2,89 +2,80 @@
   <div class="sidebar">
     <!-- Workspace Header -->
     <div class="workspace-header">
-      <h1 class="workspace-name">{{ storeData.workspace?.name }}</h1>
+      <h1 class="workspace-name">{{ storeData.workspace?.name || 'Loading...' }}</h1>
     </div>
 
-    <!-- Search Bar -->
-    <div class="search-bar">
-      <input type="text" placeholder="Search" />
+    <!-- Loading State -->
+    <div v-if="isLoading" class="loading-state">
+      Loading workspace...
     </div>
 
-    <!-- Channels Section -->
-    <div class="sidebar-section">
-      <div class="section-header">
-        <span class="section-title">Channels</span>
-        <button class="add-button" @click="showCreateChannel = true">+</button>
+    <template v-else>
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <input type="text" placeholder="Search" />
       </div>
-      <div class="section-items">
-        <div 
-          v-for="channel in storeData.channels" 
-          :key="channel.id"
-          class="section-item"
-          :class="{ active: storeData.currentChannel?.id === channel.id }"
-          @click="selectChannel(channel)"
-          @contextmenu.prevent="showContextMenu($event, channel)"
-        >
-          <span class="icon">{{ channel.type === 'private' ? '🔒' : '#' }}</span>
-          <span>{{ channel.name }}</span>
+
+      <!-- Channels Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Channels</span>
+          <button class="add-button" @click="showCreateChannel = true">+</button>
+        </div>
+        <div class="section-items">
+          <div 
+            v-for="channel in storeData.channels" 
+            :key="channel._id"
+            class="section-item"
+            :class="{ active: storeData.currentChannel?._id === channel._id }"
+            @click="selectChannel(channel)"
+            @contextmenu.prevent="showContextMenu($event, channel)"
+          >
+            <span class="icon">{{ channel.type === 'private' ? '🔒' : '#' }}</span>
+            <span>{{ channel.name }}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Channel Context Menu -->
-    <div 
-      v-if="contextMenu.show" 
-      class="context-menu"
-      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-    >
-      <div class="menu-item" @click="updateChannel(contextMenu.channel)">
-        Update channel
-      </div>
-      <div class="menu-item" @click="deleteChannel(contextMenu.channel)">
-        Delete channel
-      </div>
-    </div>
-
-    <!-- Direct Messages Section -->
-    <div class="sidebar-section">
-      <div class="section-header">
-        <span class="section-title">Direct messages</span>
-        <button class="add-button">+</button>
-      </div>
-      <div class="section-items">
-
-        <!-- Workspace Members -->
-        <div 
-          v-for="member in storeData.workspace?.members || []" 
-          :key="member._id"
-          class="section-item"
-          v-if="member?._id !== storeData.currentUser?._id"
-        >
-          <img 
-            :src="member.avatarUrl" 
-            :alt="member.displayName"
-            class="user-avatar"
-          />
-          <span>{{ member.displayName }}</span>
-          <span v-if="member.role === 'admin'" class="role-label">admin</span>
+      <!-- Direct Messages Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Direct messages</span>
+          <button class="add-button">+</button>
         </div>
+        <div class="section-items">
+          <!-- Workspace Members -->
+          <div 
+            v-for="member in filteredMembers" 
+            :key="member.userId._id"
+            class="section-item"
+          >
+            <img 
+              :src="member.userId.avatarUrl || ''" 
+              :alt="member.userId.displayName || 'User'"
+              class="user-avatar"
+            />
+            <span>{{ member.userId.displayName || 'Unknown User' }}</span>
+            <span v-if="member.role === 'admin'" class="role-label">admin</span>
+          </div>
 
-        <!-- Pending Invites -->
-        <div 
-          v-for="invite in storeData.sentInvites" 
-          :key="invite.id" 
-          class="section-item pending-invite"
-        >
-          <span class="status-icon">⏳</span>
-          <span>{{ invite.invitedEmail.split('@')[0] }}</span>
-          <span class="pending-label">pending</span>
+          <!-- Pending Invites -->
+          <div 
+            v-for="invite in storeData.sentInvites" 
+            :key="invite.id" 
+            class="section-item pending-invite"
+          >
+            <span class="status-icon">⏳</span>
+            <span>{{ invite.invitedEmail.split('@')[0] }}</span>
+            <span class="pending-label">pending</span>
+          </div>
+
+          <button class="invite-button" @click="showInviteModal = true">
+            <i class="fas fa-user-plus"></i> Invite People to Workspace
+          </button>
         </div>
-
-        <button class="invite-button" @click="showInviteModal = true">
-          <i class="fas fa-user-plus"></i> Invite People to Workspace
-        </button>
       </div>
-    </div>
+    </template>
 
     <!-- Create Channel Modal -->
     <CreateChannelModal 
@@ -96,14 +87,14 @@
     <!-- Invite Users Modal -->
     <InviteUsersModal
       v-if="showInviteModal"
-      :workspace-id="storeData.workspace?.id"
+      :workspace-id="storeData.workspace?._id"
       @close="showInviteModal = false"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
@@ -119,6 +110,9 @@ const contextMenu = ref({
   y: 0,
   channel: null
 });
+
+// Add loading state
+const isLoading = ref(true);
 
 // Handle clicking outside context menu to close it
 const closeContextMenu = (e) => {
@@ -145,22 +139,41 @@ const showContextMenu = (event, channel) => {
   };
 };
 
-// Single computed property for store data to reduce reactivity triggers
-const storeData = computed(() => {
-  const data = {
-    channels: store.getters['channels/channels'],
-    currentChannel: store.getters['channels/currentChannel'],
-    sentInvites: store.getters['invites/sentInvites'],
-    currentUser: store.getters['auth/currentUser'],
-    workspace: store.getters['workspaces/currentWorkspace']
-  };
-  console.log('Workspace members:', data.workspace?.members);
-  return data;
+// Computed property for filtered workspace members
+const filteredMembers = computed(() => {
+  const workspace = store.getters['workspaces/currentWorkspace'];
+  const currentUser = store.getters['auth/currentUser'];
+  const members = workspace?.members || [];
+  
+  return members.filter(member => 
+    member && member._id && member._id !== currentUser?._id
+  );
 });
 
+// Single computed property for store data to reduce reactivity triggers
+const storeData = computed(() => ({
+  channels: store.getters['channels/channels'] || [],
+  currentChannel: store.getters['channels/currentChannel'],
+  sentInvites: store.getters['invites/sentInvites'] || [],
+  currentUser: store.getters['auth/currentUser'],
+  workspace: store.getters['workspaces/currentWorkspace']
+}));
+
+// Watch for changes in workspace to update loading state
+watch(
+  () => storeData.value.workspace,
+  (newWorkspace) => {
+    if (newWorkspace) {
+      isLoading.value = false;
+    }
+  },
+  { immediate: true }
+);
+
 const selectChannel = async (channel) => {
+  if (!channel?._id || !storeData.value.workspace?._id) return;
     
-    await store.dispatch('channels/setCurrentChannel', {
+  await store.dispatch('channels/setCurrentChannel', {
     channel,
     token: store.getters['auth/token']
   });
@@ -355,5 +368,11 @@ const onChannelCreated = (channel) => {
   background-color: #363636;
   padding: 2px 4px;
   border-radius: 3px;
+}
+
+.loading-state {
+  padding: 16px;
+  text-align: center;
+  color: #ABABAD;
 }
 </style> 
