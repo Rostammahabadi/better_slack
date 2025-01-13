@@ -99,9 +99,10 @@ import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { useSocket } from '../../services/socketService';
+const store = useStore();
 const {
   sendChannelCreated
-} = useSocket();
+} = useSocket(store);
 
 const props = defineProps({
   show: {
@@ -112,7 +113,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'created']);
 
-const store = useStore();
 const route = useRoute();
 const router = useRouter();
 

@@ -15,7 +15,7 @@ import { inject } from 'vue';
 const router = useRouter();
 const store = useStore();
 const auth0 = inject('auth0');
-const { connect } = useSocket();
+const { connect } = useSocket(store);
 
 const handleCallback = async () => {
   try {

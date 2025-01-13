@@ -205,7 +205,7 @@ const {
   sendWorkspaceJoined,
   sendWorkspaceLeft,
   leaveChannel
-} = useSocket();
+} = useSocket(store);
 
 const workspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const workspaces = computed(() => store.getters['workspaces/workspaces']);

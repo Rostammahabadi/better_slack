@@ -77,7 +77,7 @@ import { useStore } from 'vuex';
 import { useSocket } from '../../services/socketService';
 
 const store = useStore();
-const { sendWorkspaceJoined } = useSocket();
+const { sendWorkspaceJoined } = useSocket(store);
 
 const showThreadSidebar = computed(() => store.getters['messages/activeThread'] !== null);
 const threadParentMessage = computed(() => store.getters['messages/activeThread']);

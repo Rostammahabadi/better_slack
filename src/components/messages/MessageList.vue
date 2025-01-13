@@ -80,7 +80,7 @@ const {
   sendReaction,
   sendReactionRemoved,
   sendEditMessage
-} = useSocket();
+} = useSocket(store);
 
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
 

@@ -59,6 +59,7 @@ import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
 import MessageList from '../components/messages/MessageList.vue';
 import TextEditor from '../components/TextEditor.vue';
 import { useSocket } from '../services/socketService';
+const store = useStore();
 const {
   joinChannel,
   sendRealtimeMessage,
@@ -66,11 +67,11 @@ const {
   sendWorkspaceJoined,
   sendWorkspaceLeft,
   leaveChannel
-} = useSocket();
+} = useSocket(store);
 
 const route = useRoute();
 const router = useRouter();
-const store = useStore();
+
 // Computed properties from store
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
