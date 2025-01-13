@@ -140,11 +140,7 @@ const actions = {
   },
 
   async logout({ commit, dispatch }) {
-    try {
-      await dispatch('invites/clearSentInvites', null, { root: true });
-    } finally {
-      commit('CLEAR_AUTH');
-    }
+    commit('CLEAR_AUTH');
   }
 };
 

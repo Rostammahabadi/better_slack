@@ -94,8 +94,7 @@ const handleSubmit = async () => {
       invitedEmail: email,
       status: 'pending',
       token,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      invitationUrl: `${import.meta.env.VITE_API_URL}/invite/${token}`
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
   });
 

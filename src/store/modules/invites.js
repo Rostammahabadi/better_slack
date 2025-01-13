@@ -34,7 +34,7 @@ const actions = {
       }
 
       const data = await response.json();
-      commit('SET_SENT_INVITES', [...state.sentInvites, ...data]);
+      commit('SET_SENT_INVITES', [...state.sentInvites, ...data.invites]);
       return data;
     } catch (error) {
       commit('SET_ERROR', error.message);

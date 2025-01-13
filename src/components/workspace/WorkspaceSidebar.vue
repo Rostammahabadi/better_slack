@@ -58,14 +58,14 @@
           v-for="member in storeData.workspace?.members || []" 
           :key="member._id"
           class="section-item"
-          v-if="member?.userId?._id !== storeData.currentUser?._id"
+          v-if="member?._id !== storeData.currentUser?._id"
         >
           <img 
-            :src="member.userId?.avatarUrl" 
-            :alt="member.userId?.displayName"
+            :src="member.avatarUrl" 
+            :alt="member.displayName"
             class="user-avatar"
           />
-          <span>{{ member.userId?.displayName }}</span>
+          <span>{{ member.displayName }}</span>
           <span v-if="member.role === 'admin'" class="role-label">admin</span>
         </div>
 
@@ -105,13 +105,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
 
 const store = useStore();
 const router = useRouter();
-const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
 const contextMenu = ref({
