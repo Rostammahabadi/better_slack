@@ -44,30 +44,18 @@
           <button class="add-button">+</button>
         </div>
         <div class="section-items">
-          <!-- Workspace Members -->
+          <!-- Conversation Participants -->
           <div 
-            v-for="member in filteredMembers" 
-            :key="member.userId._id"
+            v-for="conversation in filteredParticipants" 
+            :key="conversation._id"
             class="section-item"
           >
             <img 
-              :src="member.userId.avatarUrl || ''" 
-              :alt="member.userId.displayName || 'User'"
+              :src="conversation.displayParticipants[0]?.avatarUrl || ''" 
+              :alt="conversation.displayParticipants[0]?.displayName || 'User'"
               class="user-avatar"
             />
-            <span>{{ member.userId.displayName || 'Unknown User' }}</span>
-            <span v-if="member.role === 'admin'" class="role-label">admin</span>
-          </div>
-
-          <!-- Pending Invites -->
-          <div 
-            v-for="invite in storeData.sentInvites" 
-            :key="invite.id" 
-            class="section-item pending-invite"
-          >
-            <span class="status-icon">⏳</span>
-            <span>{{ invite.invitedEmail.split('@')[0] }}</span>
-            <span class="pending-label">pending</span>
+            <span>{{ conversation.displayParticipants.map(p => p.displayName).join(', ') || 'Unknown User' }}</span>
           </div>
 
           <button class="invite-button" @click="showInviteModal = true">
@@ -111,6 +99,8 @@ const contextMenu = ref({
   channel: null
 });
 
+const conversations = computed(() => store.getters['conversations/conversations']);
+
 // Add loading state
 const isLoading = ref(true);
 
@@ -122,6 +112,7 @@ const closeContextMenu = (e) => {
 };
 
 onMounted(() => {
+  store.dispatch('conversations/fetchConversations');
   document.addEventListener('click', closeContextMenu);
 });
 
@@ -140,15 +131,16 @@ const showContextMenu = (event, channel) => {
 };
 
 // Computed property for filtered workspace members
-const filteredMembers = computed(() => {
-  const workspace = store.getters['workspaces/currentWorkspace'];
-  const currentUser = store.getters['auth/currentUser'];
-  const members = workspace?.members || [];
-  
-  return members.filter(member => 
-    member && member._id && member._id !== currentUser?._id
-  );
-});
+const filteredParticipants = computed(() => {
+  const currentUser = store.getters['auth/currentUser']
+  if (!conversations.value) return [];
+  return conversations.value.map(conversation => ({
+    ...conversation,
+    displayParticipants: conversation.participants.filter(
+      p => p._id !== currentUser?._id
+    )
+  }))
+})
 
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
