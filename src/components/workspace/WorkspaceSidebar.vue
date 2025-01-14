@@ -41,7 +41,7 @@
       <div class="sidebar-section">
         <div class="section-header">
           <span class="section-title">Direct messages</span>
-          <button class="add-button">+</button>
+          <button class="add-button" @click="showNewMessageModal = true">+</button>
         </div>
         <div class="section-items">
           <!-- Conversation Participants -->
@@ -78,6 +78,12 @@
       :workspace-id="storeData.workspace?._id"
       @close="showInviteModal = false"
     />
+
+    <!-- New Direct Message Modal -->
+    <NewDirectMessageModal
+      v-if="showNewMessageModal"
+      @close="showNewMessageModal = false"
+    />
   </div>
 </template>
 
@@ -87,11 +93,13 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
+import NewDirectMessageModal from '../modals/NewDirectMessageModal.vue';
 
 const store = useStore();
 const router = useRouter();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
+const showNewMessageModal = ref(false);
 const contextMenu = ref({
   show: false,
   x: 0,
