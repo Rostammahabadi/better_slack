@@ -14,15 +14,6 @@ export default defineConfig(({ mode }) => {
         'vue': 'vue/dist/vue.esm-bundler.js'
       }
     },
-    server: {
-      port: 5173,
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3000',
-          changeOrigin: true
-        }
-      }
-    },
     css: {
       devSourcemap: true
     },
