@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => {
         VITE_AUTH0_CLIENT_ID: env.VITE_AUTH0_CLIENT_ID,
         VITE_AUTH0_AUDIENCE: env.VITE_AUTH0_AUDIENCE,
         VITE_API_URL: env.VITE_API_URL,
-        VITE_SOCKET_URL: env.VITE_SOCKET_URL
+        VITE_SOCKET_URL: env.VITE_SOCKET_URL,
+        VITE_API_BASE_URL: env.VITE_API_BASE_URL
       }
     }
   }
