@@ -6,7 +6,10 @@
   margin: 0;
   padding: 0;
 }
-
+.section-item.active {
+  background-color: #1164A3;
+  color: #FFFFFF;
+}
 :root {
   --slack-purple: #611f69;
   --slack-purple-hover: #4a154b;

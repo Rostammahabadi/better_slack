@@ -1,12 +1,20 @@
 <template>
   <div class="message-list" ref="messageListRef">
+    <!-- Loading indicator at the top -->
+    <div v-if="isLoadingMore" class="loading-indicator">
+      Loading more messages...
+    </div>
+
     <div 
       v-for="message in messages" 
       :key="message._id" 
       class="message"
       @mouseover="showMenuForMessage(message)"
       @mouseleave="startHideMenu"
-      :class="{ 'message-hovered': hoveredMessage?._id === message._id }"
+      :class="{ 
+        'message-hovered': hoveredMessage?._id === message._id,
+        [`message-type-${message.type}`]: true
+      }"
     >
       <img
         v-if="message.user?.avatarUrl"
@@ -21,6 +29,7 @@
         <div class="message-header">
           <span class="username">{{ message.user?.displayName }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
+          <MessageStatus :status="message.status" />
         </div>
         <div v-if="editingMessageId === message._id" class="message-edit">
           <TextEditor 
@@ -68,17 +77,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import MessageHoverMenu from './MessageHoverMenu.vue';
 import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-const emit = defineEmits([ 'edit-message']);
+
+const emit = defineEmits(['edit-message']);
 const messageListRef = ref(null);
 const hoveredMessage = ref(null);
 const showHoverMenu = ref(false);
 const editingMessageId = ref(null);
 let hideMenuTimeout = null;
+const isLoadingMore = ref(false);
+
 import { useSocket } from '../../services/socketService';
 const store = useStore();
 const router = useRouter();
@@ -88,17 +100,62 @@ const {
   sendEditMessage
 } = useSocket(store);
 
-const currentChannel = computed(() => store.getters['channels/currentChannel']);
-
-const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
+// Computed properties for messages and pagination
 const messages = computed(() => {
-  if (router.currentRoute.value.params.channelId) {
-    return store.getters['messages/messages'];
-  } else if (router.currentRoute.value.params.conversationId) {
-    return store.getters['conversations/getMessages'] || [];
+  const channelId = router.currentRoute.value.params.channelId;
+  const conversationId = router.currentRoute.value.params.conversationId;
+
+  if (channelId) {
+    return store.getters['messages/getChannelMessages'](channelId);
+  } else if (conversationId) {
+    return store.getters['messages/getConversationMessages'](conversationId);
   }
   return [];
 });
+
+const hasMore = computed(() => {
+  const channelId = router.currentRoute.value.params.channelId;
+  const conversationId = router.currentRoute.value.params.conversationId;
+
+  if (channelId) {
+    return store.getters['messages/hasMoreChannelMessages'](channelId);
+  } else if (conversationId) {
+    return store.getters['messages/hasMoreConversationMessages'](conversationId);
+  }
+  return false;
+});
+
+const nextCursor = computed(() => {
+  const channelId = router.currentRoute.value.params.channelId;
+  const conversationId = router.currentRoute.value.params.conversationId;
+
+  if (channelId) {
+    return store.getters['messages/getChannelNextCursor'](channelId);
+  } else if (conversationId) {
+    return store.getters['messages/getConversationNextCursor'](conversationId);
+  }
+  return null;
+});
+
+// Message status indicator component
+const MessageStatus = {
+  props: ['status'],
+  template: `
+    <span class="message-status" :title="status">
+      {{ statusIcon }}
+    </span>
+  `,
+  computed: {
+    statusIcon() {
+      switch (this.status) {
+        case 'sent': return '✓';
+        case 'delivered': return '✓✓';
+        case 'read': return '✓✓';
+        default: return '';
+      }
+    }
+  }
+};
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -145,6 +202,7 @@ const handleEditComplete = async (messageData) => {
         const editedMessage = await store.dispatch('messages/updateMessage', {
           _id: editingMessageId.value,
           content: messageData.content,
+          type: 'channel',
           channelId: store.state.channels.currentChannel._id,
           token: store.state.auth.token
         });
@@ -153,6 +211,7 @@ const handleEditComplete = async (messageData) => {
         const editedMessage = await store.dispatch('conversations/updateMessage', {
           _id: editingMessageId.value,
           content: messageData.content,
+          type: 'conversation',
           conversationId: router.currentRoute.value.params.id,
           token: store.state.auth.token
         });
@@ -239,7 +298,7 @@ const hasUserReacted = (reaction) => {
 
 // Add thread-related computed and methods
 const getThreadCount = (message) => {
-  return store.getters['messages/getThreadReplies'](message._id)?.length || 0;
+  return store.getters['messages/getThreadReplies']?.(message._id) || 0;
 };
 
 // Add scrollToBottom function
@@ -249,20 +308,18 @@ const scrollToBottom = () => {
   }
 };
 
-// Watch for changes in messages to scroll to bottom
-watch(() => messages.value, () => {
-  // Use nextTick to ensure DOM is updated before scrolling
-  nextTick(() => {
-    scrollToBottom();
-  });
-}, { deep: true });
+// Add currentChannel computed property
+const currentChannel = computed(() => store.getters['channels/currentChannel']);
 
-// Watch for changes in currentChannel to scroll to bottom
-watch(() => currentChannel.value, () => {
-  nextTick(() => {
-    scrollToBottom();
-  });
-});
+// Update the watch section to handle both channel and conversation changes
+watch([() => messages.value, () => currentChannel.value], () => {
+  // Only scroll to bottom for new messages, not when loading older ones
+  if (!isLoadingMore.value) {
+    nextTick(() => {
+      scrollToBottom();
+    });
+  }
+}, { deep: true });
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -287,8 +344,45 @@ const styles = `
 }
 `;
 
+// Handle scroll for infinite loading
+const handleScroll = async () => {
+  if (!messageListRef.value || isLoadingMore.value || !hasMore.value) return;
+  
+  const { scrollTop } = messageListRef.value;
+  // If we're near the top (100px threshold), load more messages
+  if (scrollTop < 100) {
+    isLoadingMore.value = true;
+    try {
+      const channelId = router.currentRoute.value.params.channelId;
+      const conversationId = router.currentRoute.value.params.conversationId;
+
+      if (channelId) {
+        await store.dispatch('messages/fetchChannelMessages', {
+          channelId,
+          cursor: nextCursor.value
+        });
+      } else if (conversationId) {
+        await store.dispatch('messages/fetchConversationMessages', {
+          conversationId,
+          cursor: nextCursor.value
+        });
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      isLoadingMore.value = false;
+    }
+  }
+};
+
+// Add and remove scroll event listener
 onMounted(() => {
+  messageListRef.value?.addEventListener('scroll', handleScroll);
   scrollToBottom();
+});
+
+onUnmounted(() => {
+  messageListRef.value?.removeEventListener('scroll', handleScroll);
 });
 </script>
 
@@ -413,5 +507,41 @@ onMounted(() => {
 .thread-count:hover {
   background-color: rgba(18, 100, 163, 0.1);
   text-decoration: underline;
+}
+
+.load-more-trigger {
+  height: 20px;
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 10px;
+  color: #ABABAD;
+  font-size: 14px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.message-status {
+  margin-left: 8px;
+  color: #ABABAD;
+  font-size: 12px;
+}
+
+.message-type-channel {
+  /* Add any specific styling for channel messages */
+}
+
+.message-type-conversation {
+  /* Add any specific styling for conversation messages */
+}
+
+.message-type-thread {
+  /* Add any specific styling for thread messages */
 }
 </style>

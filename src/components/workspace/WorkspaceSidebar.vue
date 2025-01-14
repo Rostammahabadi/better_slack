@@ -49,6 +49,7 @@
             v-for="conversation in filteredParticipants" 
             :key="conversation._id"
             class="section-item"
+            :class="{ active: route.params.conversationId === conversation._id }"
             @click="selectConversation(conversation)"
           >
             <div class="conversation-avatar">
@@ -108,13 +109,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
 import NewDirectMessageModal from '../modals/NewDirectMessageModal.vue';
 
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
 const showNewMessageModal = ref(false);

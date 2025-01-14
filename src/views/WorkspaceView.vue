@@ -151,9 +151,10 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
     
     if (newChannel !== oldChannel) {
       const channel = store.getters['channels/getChannelById'](newChannel);   
-      await store.dispatch('messages/fetchMessages', {
+      await store.dispatch('messages/fetchChannelMessages', {
         channelId: newChannel,
-        token: token.value
+        token: token.value,
+        limit: 30
       });
     }
   }
@@ -166,9 +167,10 @@ watch(() => route.params.conversationId, async (newConversationId, oldConversati
     store.dispatch('channels/setCurrentChannel', { channel: null });
     
     try {
-      await store.dispatch('conversations/fetchConversationMessages', {
+      await store.dispatch('messages/fetchConversationMessages', {
         conversationId: newConversationId,
-        token: token.value
+        token: token.value,
+        limit: 30
       });
       
       await store.dispatch('conversations/setCurrentConversation', {
@@ -220,7 +222,7 @@ const sendMessage = async (messageData) => {
   
   try {
     if (currentChannel.value) {
-      const message = {
+      const messageResponse = await store.dispatch('messages/sendChannelMessage', {
         content: messageData.content,
         channelId: currentChannel.value._id,
         user: currentUser.value._id,
@@ -231,33 +233,17 @@ const sendMessage = async (messageData) => {
         edited: false,
         editHistory: [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      const messageResponse = await store.dispatch('messages/sendMessage', {
-        message,
-        token: token.value
+        updatedAt: new Date().toISOString(),
+        type: 'channel',
+        attachments: messageData.attachments || []
       });
       sendRealtimeMessage(messageResponse);
     } else if (route.params.conversationId) {
-      // Handle conversation messages
-      const message = {
-        content: messageData.content,
+      const messageResponse = await store.dispatch('messages/sendConversationMessage', {
         conversationId: route.params.conversationId,
+        content: messageData.content,
         type: 'conversation',
-        user: currentUser.value._id,
-        threadId: messageData.threadId || null,
-        attachments: messageData.attachments || [],
-        status: 'sent',
-        reactions: [],
-        edited: false,
-        editHistory: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const messageResponse = await store.dispatch('conversations/sendMessage', {
-        message,
-        token: token.value
+        attachments: messageData.attachments || []
       });
       sendRealtimeMessage(messageResponse);
     }
