@@ -56,6 +56,11 @@ const actions = {
       dispatch('messages/deleteMessage', messageId, { root: true });
     });
 
+    // Bot message event
+    socket.on('bot:message', (message) => {
+      dispatch('chatbot/addMessage', message, { root: true });
+    });
+
     // Reaction events
     socket.on('reaction_added', ({ messageId, reaction }) => {
       dispatch('messages/addReaction', { messageId, reaction }, { root: true });

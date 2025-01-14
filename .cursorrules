@@ -1,3 +1,12 @@
 Production ready application
 Adhere to Vue 3 best practices
 Never change functionality of existing code just add new features
+Never add a new file unless directed by the user
+The project uses a realtime socket connection to send and receive messages via the socketService.js file
+The project manages state with vuex and the store/modules/ files
+The project uses a chatbot that is activated by the user and sends messages to the chatbot via the socketService.js file
+The chatbot sends messages back to the user via the socketService.js file
+The user can send messages to the chatbot and the chatbot will respond to the user
+The user can send messages to a channel and the chatbot will respond to the user
+The user can send messages to a conversation and the chatbot will respond to the user
+The user can send messages to a direct message and the chatbot will respond to the user

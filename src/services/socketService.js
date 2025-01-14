@@ -126,6 +126,15 @@ export function useSocket(store) {
       store.commit('messages/UPDATE_CONVERSATION_MESSAGE', { conversationId, messageId, content });
     });
 
+    socket.on('bot:message', (message) => {
+      store.dispatch('chatbot/addMessage', message);
+      store.dispatch('chatbot/setLoading', false);
+    });
+
+    socket.on('bot:connect', ( message) => {
+      store.dispatch('chatbot/addMessage', message);
+    });
+
     // Add handler for channel thread replies
     socket.on('channel:thread_reply', ({ channelId, threadId, reply }) => {
       store.commit('messages/addChannelThreadReply', { 
@@ -136,10 +145,20 @@ export function useSocket(store) {
     });
   };
 
+  const activateBot = (userId) => {
+    if (!socket) return;
+    socket.emit('bot:connect', { userId });
+  };
+
   // Channel actions
   const joinChannel = (channelId, user) => {
     if (!socket) return;
     socket.emit('channel:join', channelId, user._id);
+  };
+
+  const sendBotMessage = (message, userId) => {
+    if (!socket) return;
+    socket.emit('bot:message', { message, userId });
   };
 
   const leaveChannel = (channelId) => {
@@ -302,6 +321,8 @@ export function useSocket(store) {
     sendChannelMessageEdit,
     sendConversationMessageEdit,
     sendChannelThreadReply,
-    sendConversationThreadReply
+    sendConversationThreadReply,
+    activateBot,
+    sendBotMessage
   };
 }

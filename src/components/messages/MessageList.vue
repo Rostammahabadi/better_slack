@@ -133,6 +133,19 @@ const messages = computed(() => {
 
   if (channelId) {
     return store.getters['messages/getChannelMessages'](channelId);
+  } else if (router.currentRoute.value.name === 'bot-conversation') {
+    // Get bot messages and ensure they have required properties
+    return store.getters['chatbot/messages'].map(msg => ({
+      ...msg,
+      _id: msg._id || Date.now() + Math.random(), // Ensure each message has a unique ID
+      user: msg.sender === 'bot' ? {
+        displayName: 'Chatbot',
+        avatarUrl: '/images/bot.png'
+      } : {
+        displayName: 'You',
+        avatarUrl: store.getters['auth/currentUser']?.avatarUrl
+      }
+    }));
   } else if (conversationId) {
     return store.getters['messages/getConversationMessages'](conversationId);
   }
@@ -184,8 +197,29 @@ const nextCursor = computed(() => {
 // };
 
 const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  
   const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  if (isToday) {
+    return date.toLocaleTimeString([], { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  }
+  
+  return date.toLocaleDateString([], { 
+    month: 'short', 
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
 };
 
 const showMenuForMessage = (message) => {
@@ -308,6 +342,9 @@ const handleSendMessage = async (messageData) => {
         });
         sendConversationMessage(messageResponse);
       }
+    } else if (router.currentRoute.value.name === 'bot-conversation') {
+      // Handle bot message
+      await store.dispatch('chatbot/sendMessage', messageData.content);
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -491,21 +528,39 @@ const getLastReplyUser = (message) => {
 };
 </script>
 
+<style>
+/* Bot specific styles */
+.message-type-bot .message-text {
+  color: #FFFFFF !important;
+}
+
+.message-type-bot .username {
+  color: #FFFFFF !important;
+}
+
+.message-type-bot .timestamp {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.message-type-bot .avatar {
+  background-color: #5865F2 !important;
+  border-radius: 50% !important ;
+}
+</style>
+
 <style scoped>
 .message-list {
-  flex-grow: 1;
-  overflow-y: auto;
   padding: 20px;
-  min-height: 0;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .message {
   display: flex;
   gap: 12px;
-  padding: 4px 8px;
-  margin: -4px -8px 16px -8px;
-  border-radius: 6px;
-  position: relative;
+  padding: 8px;
+  margin-bottom: 16px;
+  border-radius: 8px;
 }
 
 .message-hovered {
@@ -516,34 +571,40 @@ const getLastReplyUser = (message) => {
   width: 36px;
   height: 36px;
   border-radius: 4px;
-  object-fit: cover;
+  background-color: #2C2F33;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
 }
 
 .message-content {
   flex: 1;
-  position: relative;
-  min-height: 36px;
+  min-width: 0;
 }
 
 .message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 4px;
 }
 
 .username {
-  font-weight: 700;
+  font-weight: 600;
   color: #FFFFFF;
 }
 
 .timestamp {
-  margin-left: 8px;
-  color: #ABABAD;
   font-size: 12px;
+  color: #9CA3AF;
 }
 
 .message-text {
-  color: #D1D2D3;
+  color: #E5E7EB;
+  word-wrap: break-word;
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .message-reactions {
@@ -716,5 +777,34 @@ const getLastReplyUser = (message) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.message-type-bot {
+  background-color: rgba(88, 101, 242, 0.2);
+}
+
+.message-type-bot .message-content {
+  color: #5865F2;
+}
+
+.message-type-bot .username {
+  color: #5865F2;
+  font-weight: 600;
+}
+
+.message-type-bot .timestamp {
+  color: #7984F5;
+}
+
+.message-type-bot .message-text {
+  color: #2C2F33;
+  margin-top: 4px;
+}
+
+.message-type-bot .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 </style>

@@ -98,6 +98,9 @@ const actions = {
 
   setCurrentChannel({ commit }, { channel }) {
     commit('SET_CURRENT_CHANNEL', channel);
+  },
+  clearCurrentChannel({ commit }) {
+    commit('SET_CURRENT_CHANNEL', null);
   }
 };
 

@@ -106,6 +106,16 @@ const actions = {
     }
   },
 
+  async sendBotMessage({ commit }, message) {
+    try {
+      const response = await api.post('/chatbot/messages', message);
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
   async sendChannelMessage({ commit }, { channelId, content, attachments = [], user, threadId = null }) {
     try {
       const message = {

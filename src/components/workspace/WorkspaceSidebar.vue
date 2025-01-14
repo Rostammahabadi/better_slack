@@ -44,6 +44,25 @@
           <button class="add-button" @click="showNewMessageModal = true">+</button>
         </div>
         <div class="section-items">
+          <!-- Pinned Chatbot -->
+          <div 
+            class="section-item chatbot-item"
+            :class="{ active: route.name === 'bot-conversation' }"
+            @click="activateChatbot"
+          >
+            <div class="conversation-avatar">
+              <img 
+                src="/images/bot.png"
+                alt="Chatbot"
+                class="user-avatar"
+              />
+            </div>
+            <div class="conversation-info">
+              <span>Chatbot</span>
+              <span class="bot-status">AI Assistant</span>
+            </div>
+          </div>
+
           <!-- Conversation Participants -->
           <div 
             v-for="conversation in filteredParticipants" 
@@ -113,6 +132,7 @@ import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
 import NewDirectMessageModal from '../modals/NewDirectMessageModal.vue';
+import { useSocket } from '@/services/socketService';
 
 const store = useStore();
 const router = useRouter();
@@ -126,6 +146,9 @@ const contextMenu = ref({
   y: 0,
   channel: null
 });
+
+const socket = useSocket(store);
+const { activateBot } = socket;
 
 const conversations = computed(() => store.getters['conversations/getConversations']);
 
@@ -222,6 +245,16 @@ const getInitials = (name) => {
     .toUpperCase()
     .slice(0, 2)
 }
+
+const activateChatbot = async () => {
+  
+  router.push({
+    name: 'bot-conversation',
+    params: { 
+      workspaceId: storeData.value.workspace._id 
+    }
+  });
+};
 
 const selectConversation = (conversation) => {
   router.push({
@@ -446,5 +479,17 @@ const selectConversation = (conversation) => {
 .conversation-avatar {
   flex-shrink: 0;
   margin-right: 12px;
+}
+
+.chatbot-item {
+  border-bottom: 1px solid #4B4B4B;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
+.bot-status {
+  font-size: 12px;
+  color: #5865F2;
+  display: block;
 }
 </style> 

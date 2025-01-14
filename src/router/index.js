@@ -52,6 +52,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/workspaces/:workspaceId/conversations/bot',
+      name: 'bot-conversation',
+      component: WorkspaceView,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/workspaces/:workspaceId/conversations/:conversationId',
       name: 'conversation',
       component: WorkspaceView,

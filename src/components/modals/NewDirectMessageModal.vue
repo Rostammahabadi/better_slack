@@ -42,6 +42,22 @@
             class="search-results"
             @scroll="handleScroll"
           >
+          <button 
+              class="search-result-item bot-result"
+              @click="selectUser({displayName: 'Chatbot', id: 'chatbot', avatarUrl: '/images/bot.png'})"
+            >
+              <div class="user-avatar">
+                <img 
+                  src="/images/bot.png"
+                  alt="Bot"
+                  class="avatar-image"
+                />
+              </div>
+              <div class="user-info">
+                <div class="user-name">Chatbot</div>
+                <div class="user-email">AI Assistant</div>
+              </div>
+            </button>
             <div
               v-for="(user, index) in filteredUsers"
               :key="user._id"
@@ -207,11 +223,56 @@ const handleSearch = debounce(async () => {
   }
 }, 300)
 
-const selectUser = (user) => {
-  selectedUsers.value.push(user)
-  searchQuery.value = ''
-  showResults.value = false
-  activeIndex.value = -1
+const selectUser = async (user) => {
+  // If selecting bot, check if bot conversation exists and route to it
+  if (user.displayName === 'Chatbot') {
+    const botMessages = store.getters['chatbot/messages'];
+    
+    // If bot is already active, just route to it
+    if (botMessages.length > 0) {
+      handleClose();
+      router.push({
+        name: 'bot-conversation',
+        params: { 
+          workspaceId: store.state.workspaces.currentWorkspace._id 
+        }
+      });
+      return;
+    }
+    
+    // Otherwise activate bot and start new conversation
+    await store.dispatch('chatbot/activateBot');
+    store.commit('conversations/addConversation', {
+      id: 'bot',
+      name: 'Chatbot',
+      type: 'direct',
+      avatarUrl: '/images/bot.png',
+      participants: [{_id: 'bot', displayName: 'Chatbot'}]
+    });
+    store.commit('conversations/setCurrentConversation', {
+      id: 'bot',
+      name: 'Chatbot',
+      type: 'direct',
+      avatarUrl: '/images/bot.png',
+      participants: [{_id: 'bot', displayName: 'Chatbot'}]
+    });
+    handleClose();
+    router.push({
+      name: 'bot-conversation',
+      params: { 
+        workspaceId: store.state.workspaces.currentWorkspace._id 
+      }
+    });
+    return;
+  }
+  
+  // Otherwise handle regular user selection
+  if (!selectedUsers.value.some(u => u._id === user._id)) {
+    selectedUsers.value.push(user);
+  }
+  searchQuery.value = '';
+  showResults.value = false;
+  activeIndex.value = -1;
 }
 
 const removeUser = (user) => {
@@ -240,18 +301,22 @@ const handleEnter = () => {
 
 const startConversation = async () => {
   try {
+    // Create a regular conversation
     const conversation = await store.dispatch('conversations/createConversation', {
       participants: selectedUsers.value.map(u => u._id),
       message: message.value
-    })
+    });
     
-    handleClose()
+    handleClose();
     router.push({
       name: 'conversation',
-      params: { id: conversation._id }
-    })
+      params: { 
+        conversationId: conversation._id,
+        workspaceId: store.state.workspaces.currentWorkspace._id 
+      }
+    });
   } catch (error) {
-    console.error('Failed to create conversation:', error)
+    console.error('Failed to create conversation:', error);
   }
 }
 
@@ -275,6 +340,45 @@ const getInitials = (name) => {
 }
 </script>
 
+<style >
+.bot-result {
+  background-color: rgba(88, 101, 242, 0.1);
+  border-left: 3px solid #5865F2;
+  margin-bottom: 8px;
+}
+
+.bot-result:hover {
+  background-color: rgba(88, 101, 242, 0.2);
+}
+
+.bot-result .user-info {
+  color: #5865F2;
+}
+
+.bot-result .user-name {
+  color: #5865F2;
+}
+
+.bot-result .user-email {
+  color: #7984F5;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+  background-color: #3D3D3D;
+}
+</style>
 <style scoped>
 .new-message-modal {
   padding: 16px;

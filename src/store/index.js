@@ -7,6 +7,7 @@ import invites from './modules/invites';
 import socket from './modules/socket';
 import conversations from './modules/conversations';
 import users from './modules/users';
+import chatbot from './modules/chatbot';
 
 export default createStore({
   modules: {
@@ -17,6 +18,7 @@ export default createStore({
     invites,
     socket,
     conversations,
-    users
+    users,
+    chatbot
   }
 }); 

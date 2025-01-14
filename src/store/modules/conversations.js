@@ -45,10 +45,10 @@ const actions = {
     }
   },
 
-  async createConversation({ commit }, { participants }) {
+  async createConversation({ commit }, { participants, message }) {
     try {
       commit('setLoading', true);
-      const response = await api.post('/conversations', { participants });
+      const response = await api.post('/conversations', { participants, message });
       commit('addConversation', response.data);
       return response.data;
     } catch (error) {

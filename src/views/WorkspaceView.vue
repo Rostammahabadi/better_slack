@@ -69,22 +69,25 @@ const {
   sendRealtimeMessage,
   sendConversationMessage,
   connect,
+  activateBot,
   sendWorkspaceJoined,
   sendWorkspaceLeft,
   sendConversationConnected,
   sendConversationLeft,
-  sendChannelMessageEdit
+  sendChannelMessageEdit,
+  sendBotMessage
 } = useSocket(store);
 
 const route = useRoute();
 const router = useRouter();
 
-// Computed properties from store
+// Update computed properties
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
-
+const botLoading = computed(() => store.getters['chatbot/loading']);
+const currentConversation = computed(() => store.getters['conversations/getCurrentConversation']);
 const currentDirectMessage = computed(() => {
-  if (route.params.id) {
+  if (route.params.conversationId) {
     return currentConversation.value;
   }
   return null;
@@ -114,7 +117,7 @@ onMounted(async () => {
       workspaceId,
       token: token.value
     });
-    
+
     // If there's a channelId in the route, set it as current and fetch messages
     if (route.params.channelId) {
       const channel = store.getters['channels/getChannelById'](route.params.channelId);
@@ -130,6 +133,9 @@ onMounted(async () => {
         });
         joinChannel(channel.id, currentUser.value);
       }
+    } else if (route.name === 'bot-conversation') {
+      store.dispatch('channels/clearCurrentChannel');
+      activateBot(currentUser.value._id);
     }
   } catch (err) {
     if (err.message === 'No access token available') {
@@ -242,13 +248,10 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
   }
 });
 
-// Update computed properties
-const currentConversation = computed(() => store.getters['conversations/getCurrentConversation']);
-
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
-  
+
   try {
     if (currentChannel.value) {
       const messageResponse = await store.dispatch('messages/sendChannelMessage', {
@@ -267,6 +270,39 @@ const sendMessage = async (messageData) => {
         attachments: messageData.attachments || []
       });
       sendRealtimeMessage(messageResponse);
+    } else if (route.name === 'bot-conversation') {
+      const fullMessage = {
+        content: messageData.content,
+        channelId: null,
+        user: currentUser.value._id,
+        threadId: null,
+        attachments: [],
+        status: 'sent',
+        reactions: [],
+        edited: false,
+        editHistory: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        type: 'bot',
+      }
+      // Handle bot messages
+      // await store.dispatch('messages/sendBotMessage', {
+      //   content: messageData.content,
+      //   channelId: null,
+      //   user: currentUser.value._id,
+      //   threadId: null,
+      //   attachments: [],
+      //   status: 'sent',
+      //   reactions: [],
+      //   edited: false,
+      //   editHistory: [],
+      //   createdAt: new Date().toISOString(),
+      //   updatedAt: new Date().toISOString(),
+      //   type: 'bot',
+      // });
+      sendBotMessage(messageData.content, currentUser.value._id);
+      await store.dispatch('chatbot/sendMessage', messageData.content);
+      await store.dispatch('chatbot/setLoading', true);
     } else if (route.params.conversationId) {
       const messageResponse = await store.dispatch('messages/sendConversationMessage', {
         conversationId: route.params.conversationId,
@@ -310,7 +346,9 @@ const handleDrop = (e) => {
 
 // Add computed property for placeholder
 const getPlaceholder = computed(() => {
-  if (currentChannel.value) {
+  if (route.name === 'bot-conversation') {
+    return 'Message Chatbot...';
+  } else if (currentChannel.value) {
     return `Message #${currentChannel.value.name}`;
   } else if (currentConversation.value) {
     if (currentConversation.value.participants.length === 2) {
