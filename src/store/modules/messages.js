@@ -49,7 +49,7 @@ const getters = {
     }
     for (const conversationData of Object.values(state.conversationMessages)) {
       const message = conversationData.messages?.find(m => m._id === messageId);
-      if (message) {
+    if (message) {
         // Find all replies for this thread
         const replies = conversationData.messages.filter(m => m.threadId === messageId);
         return replies;
@@ -190,18 +190,8 @@ const actions = {
           messageData
         );
         
-        // Update the thread replies in the parent message
-        const parentMessage = state.channelMessages[message.channelId]?.messages.find(
-          m => m._id === message.threadId
-        );
-        
-        if (parentMessage) {
-          commit('addThreadReply', {
-            channelId: message.channelId,
-            threadId: message.threadId,
-            reply: response.data
-          });
-        }
+        // Don't commit the reply here, it will be added when received through the socket
+        return response.data;
       } else if (message.conversationId) {
         // Handle conversation thread replies
         response = await api.post(
@@ -209,21 +199,9 @@ const actions = {
           messageData
         );
         
-        // Update the thread replies in the parent message
-        const parentMessage = state.conversationMessages[message.conversationId]?.messages.find(
-          m => m._id === message.threadId
-        );
-        
-        if (parentMessage) {
-          commit('addConversationThreadReply', {
-            conversationId: message.conversationId,
-            threadId: message.threadId,
-            reply: response.data
-          });
-        }
+        // Don't commit the reply here, it will be added when received through the socket
+        return response.data;
       }
-      
-      return response.data;
     } catch (error) {
       commit('setError', error.message);
       throw error;
@@ -375,12 +353,29 @@ const mutations = {
     if (message.threadId) {
       const parentIndex = currentMessages.findIndex(m => m._id === message.threadId);
       if (parentIndex !== -1) {
+        // Initialize thread object if it doesn't exist
         if (!currentMessages[parentIndex].thread) {
           currentMessages[parentIndex].thread = { replies: [] };
         }
+        // Add the reply to the thread
+        currentMessages[parentIndex].thread.replies = [
+          ...(currentMessages[parentIndex].thread.replies || []),
+          message
+        ];
+        
+        // Update the messages array with the modified parent message
+        state.conversationMessages = {
+          ...state.conversationMessages,
+          [conversationId]: {
+            ...state.conversationMessages[conversationId],
+            messages: [...currentMessages]
+          }
+        };
+        return;
       }
     }
     
+    // If not a thread reply or parent not found, add as a regular message
     state.conversationMessages = {
       ...state.conversationMessages,
       [conversationId]: {
@@ -424,29 +419,22 @@ const mutations = {
     state.error = error;
   },
 
-  addThreadReply(state, { channelId, threadId, reply }) {
+  addChannelThreadReply(state, { channelId, threadId, reply }) {
     const messages = state.channelMessages[channelId]?.messages || [];
     const messageIndex = messages.findIndex(m => m._id === threadId);
-    
+
     if (messageIndex !== -1) {
-      const message = messages[messageIndex];
-      if (!message.thread) {
-        message.thread = { replies: [] };
-      }
-      message.thread.replies = [...(message.thread.replies || []), reply];
+      messages.push(reply);
     }
   },
 
   addConversationThreadReply(state, { conversationId, threadId, reply }) {
     const messages = state.conversationMessages[conversationId]?.messages || [];
     const messageIndex = messages.findIndex(m => m._id === threadId);
-    
+
     if (messageIndex !== -1) {
-      const message = messages[messageIndex];
-      if (!message.thread) {
-        message.thread = { replies: [] };
-      }
-      message.thread.replies = [...(message.thread.replies || []), reply];
+      // Update the state with the new messages array
+      state.conversationMessages[conversationId].messages.push(reply);
     }
   },
 

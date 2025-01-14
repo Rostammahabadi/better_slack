@@ -86,6 +86,15 @@ export function useSocket(store) {
       store.commit('conversations/removeUser', { conversationId, userId });
     });
 
+    // Add handler for conversation thread replies
+    socket.on('conversation:thread_reply', ({ conversationId, threadId, reply }) => {
+      store.commit('messages/addConversationThreadReply', { 
+        conversationId, 
+        threadId, 
+        reply 
+      });
+    });
+
     // Reaction events
     socket.on('channel:reaction', ({ channelId, messageId, reaction }) => {
       store.commit('messages/ADD_REACTION', { messageId, reaction, channelId });
@@ -115,6 +124,15 @@ export function useSocket(store) {
 
     socket.on('conversation:edit_message', ({ conversationId, messageId, content }) => {
       store.commit('messages/UPDATE_CONVERSATION_MESSAGE', { conversationId, messageId, content });
+    });
+
+    // Add handler for channel thread replies
+    socket.on('channel:thread_reply', ({ channelId, threadId, reply }) => {
+      store.commit('messages/addChannelThreadReply', { 
+        channelId, 
+        threadId, 
+        reply 
+      });
     });
   };
 
@@ -198,6 +216,24 @@ export function useSocket(store) {
     socket.emit('conversation:edit_message', { messageId, message, conversationId });
   };
 
+  const sendChannelThreadReply = (channelId, threadId, reply) => {
+    if (!socket) return;
+    socket.emit('channel:thread_reply', {
+      channelId,
+      threadId,
+      reply
+    });
+  };
+
+  const sendConversationThreadReply = (conversationId, threadId, reply) => {
+    if (!socket) return;
+    socket.emit('conversation:thread_reply', {
+      conversationId,
+      threadId,
+      reply
+    });
+  };
+
   // Connect/Disconnect methods
   const connect = (token) => {
     initSocket(token);
@@ -264,6 +300,8 @@ export function useSocket(store) {
     sendWorkspaceJoined,
     sendWorkspaceLeft,
     sendChannelMessageEdit,
-    sendConversationMessageEdit
+    sendConversationMessageEdit,
+    sendChannelThreadReply,
+    sendConversationThreadReply
   };
 }

@@ -120,7 +120,9 @@ const {
   sendConversationMessage,
   sendRealtimeMessage,
   sendChannelMessageEdit,
-  sendConversationMessageEdit
+  sendConversationMessageEdit,
+  sendChannelThreadReply,
+  sendConversationThreadReply
 } = useSocket(store);
 
 // Computed properties for messages and pagination
@@ -249,24 +251,62 @@ const handleSendMessage = async (messageData) => {
   try {
     if (router.currentRoute.value.params.channelId) {
       // Handle channel message
-      const messageResponse = await store.dispatch('messages/sendChannelMessage', {
-        content: messageData.content,
-        channelId: router.currentRoute.value.params.channelId,
-        user: store.state.auth.user.user._id,
-        threadId: messageData.threadId || null,
-        attachments: messageData.attachments || [],
-        type: 'channel'
-      });
-      sendRealtimeMessage(messageResponse);
+      if (messageData.threadId) {
+        // This is a thread reply
+        const messageResponse = await store.dispatch('messages/sendThreadReply', {
+          message: {
+            content: messageData.content,
+            channelId: router.currentRoute.value.params.channelId,
+            user: store.state.auth.user.user._id,
+            threadId: messageData.threadId,
+            type: 'thread'
+          }
+        });
+        sendChannelThreadReply(
+          router.currentRoute.value.params.channelId,
+          messageData.threadId,
+          messageResponse
+        );
+      } else {
+        // Regular channel message
+        const messageResponse = await store.dispatch('messages/sendChannelMessage', {
+          content: messageData.content,
+          channelId: router.currentRoute.value.params.channelId,
+          user: store.state.auth.user.user._id,
+          threadId: messageData.threadId || null,
+          attachments: messageData.attachments || [],
+          type: 'channel'
+        });
+        sendRealtimeMessage(messageResponse);
+      }
     } else if (router.currentRoute.value.params.conversationId) {
       // Handle conversation message
-      const messageResponse = await store.dispatch('messages/sendConversationMessage', {
-        conversationId: router.currentRoute.value.params.conversationId,
-        content: messageData.content,
-        type: 'conversation',
-        attachments: messageData.attachments || []
-      });
-      sendConversationMessage(messageResponse);
+      if (messageData.threadId) {
+        // This is a thread reply
+        const messageResponse = await store.dispatch('messages/sendThreadReply', {
+          message: {
+            content: messageData.content,
+            conversationId: router.currentRoute.value.params.conversationId,
+            user: store.state.auth.user.user._id,
+            threadId: messageData.threadId,
+            type: 'thread'
+          }
+        });
+        sendConversationThreadReply(
+          router.currentRoute.value.params.conversationId,
+          messageData.threadId,
+          messageResponse
+        );
+      } else {
+        // Regular conversation message
+        const messageResponse = await store.dispatch('messages/sendConversationMessage', {
+          conversationId: router.currentRoute.value.params.conversationId,
+          content: messageData.content,
+          type: 'conversation',
+          attachments: messageData.attachments || []
+        });
+        sendConversationMessage(messageResponse);
+      }
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -287,8 +327,8 @@ const handleAddReaction = async (emoji, messageId) => {
         currentChannel 
       });
       sendReaction(message._id, addedReaction, currentChannel);
-    } else if (router.currentRoute.value.params.id) {
-      const conversationId = router.currentRoute.value.params.id;
+    } else if (router.currentRoute.value.params.conversationId) {
+      const conversationId = router.currentRoute.value.params.conversationId;
       const addedReaction = await store.dispatch('conversations/addReaction', { 
         messageId: message._id, 
         reaction: emoji, 

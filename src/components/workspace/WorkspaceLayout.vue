@@ -78,7 +78,7 @@ import { useStore } from 'vuex';
 import { useSocket } from '../../services/socketService';
 
 const store = useStore();
-const { sendWorkspaceJoined, sendChannelMessageEdit, sendConversationMessageEdit } = useSocket(store);
+const { sendWorkspaceJoined, sendChannelMessageEdit, sendConversationMessageEdit, sendChannelThreadReply, sendConversationThreadReply } = useSocket(store);
 
 const showThreadSidebar = computed(() => {
   const activeThread = store.getters['messages/getActiveThread'];
@@ -139,10 +139,17 @@ const sendThreadReply = async (messageData) => {
       message.conversationId = threadParentMessage.value.conversationId;
     }
 
-    await store.dispatch('messages/sendThreadReply', {
+    const response = await store.dispatch('messages/sendThreadReply', {
       message,
-      token: store.state.auth.token
+      token: store.state.auth.user.token
     });
+
+    if (threadParentMessage.value.type === 'channel') {
+      sendChannelThreadReply(threadParentMessage.value.channelId, threadParentMessage.value._id, response);
+    } else if (threadParentMessage.value.type === 'conversation') {
+      sendConversationThreadReply(threadParentMessage.value.conversationId, threadParentMessage.value._id, response);
+    }
+
   } catch (error) {
     console.error('Failed to send thread reply:', error);
   }
