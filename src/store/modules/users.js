@@ -23,7 +23,7 @@ const getters = {
 }
 
 const actions = {
-  async fetchUsers({ commit, state }, { cursor = null } = {}) {
+  async fetchUsers({ commit, state }, { cursor = null, workspaceId } = {}) {
     try {
       commit('setIsLoading', true)
       commit('setError', null)
@@ -31,7 +31,8 @@ const actions = {
       const response = await api.get('/users', {
         params: { 
           limit: 10,
-          cursor: cursor || state.nextCursor
+          cursor: cursor || state.nextCursor,
+          workspaceId
         }
       })
       

@@ -156,7 +156,7 @@ onMounted(async () => {
 const fetchInitialUsers = async () => {
   try {
     isLoading.value = true
-    const response = await store.dispatch('users/fetchUsers', {})
+    const response = await store.dispatch('users/fetchUsers', { workspaceId: store.state.workspaces.currentWorkspace._id })
     users.value = response
   } catch (error) {
     console.error('Failed to fetch users:', error)
