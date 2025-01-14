@@ -33,6 +33,7 @@
         </div>
         <div v-if="editingMessageId === message._id" class="message-edit">
           <TextEditor 
+            placeholder="Edit message..."
             :message="message"
             @edit-message="handleEditComplete"
             @send-message="handleSendMessage"

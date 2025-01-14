@@ -31,6 +31,20 @@ const actions = {
     }
   },
 
+  async fetchConversation({ commit }, conversationId) {
+    try {
+      commit('setLoading', true);
+      const response = await api.get(`/conversations/${conversationId}`);
+      commit('setCurrentConversation', response.data);
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    } finally {
+      commit('setLoading', false);
+    }
+  },
+
   async createConversation({ commit }, { participants }) {
     try {
       commit('setLoading', true);

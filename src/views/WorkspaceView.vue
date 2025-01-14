@@ -190,22 +190,21 @@ watch(() => route.params.conversationId, async (newConversationId, oldConversati
 
   if (newConversationId) {
     // Clear current channel and thread when switching to a conversation
-    store.dispatch('channels/setCurrentChannel', { channel: null });
+    store.dispatch('channels/setCurrentChannel', {channel: null});
     store.dispatch('messages/setActiveThread', null);
     
     // Join the new conversation
     sendConversationConnected(newConversationId, currentUser.value);
     
     try {
+      // First fetch the conversation details
+      await store.dispatch('conversations/fetchConversation', newConversationId);
+      
+      // Then fetch messages
       await store.dispatch('messages/fetchConversationMessages', {
         conversationId: newConversationId,
         token: token.value,
         limit: 30
-      });
-      
-      await store.dispatch('conversations/setCurrentConversation', {
-        conversationId: newConversationId,
-        token: token.value
       });
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -311,8 +310,8 @@ const handleDrop = (e) => {
 
 // Add computed property for placeholder
 const getPlaceholder = computed(() => {
-  if (currentChannel) {
-    return `Message #${currentChannel.name}`;
+  if (currentChannel.value) {
+    return `Message #${currentChannel.value.name}`;
   } else if (currentConversation.value) {
     if (currentConversation.value.participants.length === 2) {
       const otherUser = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
@@ -321,12 +320,8 @@ const getPlaceholder = computed(() => {
       return `Message ${currentConversation.value.participants.length} people`;
     }
   }
-  return '';
+  return 'Type a message...';
 });
-
-const editConversationMessage = async (messageData) => {
-  console.log('editConversationMessage', messageData);
-};
 
 // Add new computed properties for header display
 const headerPrefix = computed(() => {
