@@ -29,12 +29,13 @@
         <div class="message-header">
           <span class="username">{{ message.user?.displayName }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
-          <MessageStatus :status="message.status" />
+          <!-- <MessageStatus :status="message.status" /> -->
         </div>
         <div v-if="editingMessageId === message._id" class="message-edit">
           <TextEditor 
             :message="message"
-            @send-message="handleEditComplete"
+            @edit-message="handleEditComplete"
+            @send-message="handleSendMessage"
             @cancel="handleCancelEdit"
           />
         </div>
@@ -115,7 +116,11 @@ const router = useRouter();
 const {
   sendReaction,
   sendReactionRemoved,
-  sendEditMessage
+  sendEditMessage,
+  sendConversationMessage,
+  sendRealtimeMessage,
+  sendChannelMessageEdit,
+  sendConversationMessageEdit
 } = useSocket(store);
 
 // Computed properties for messages and pagination
@@ -156,24 +161,24 @@ const nextCursor = computed(() => {
 });
 
 // Message status indicator component
-const MessageStatus = {
-  props: ['status'],
-  template: `
-    <span class="message-status" :title="status">
-      {{ statusIcon }}
-    </span>
-  `,
-  computed: {
-    statusIcon() {
-      switch (this.status) {
-        case 'sent': return '✓';
-        case 'delivered': return '✓✓';
-        case 'read': return '✓✓';
-        default: return '';
-      }
-    }
-  }
-};
+// const MessageStatus = {
+//   props: ['status'],
+//   template: `
+//     <span class="message-status" :title="status">
+//       {{ statusIcon }}
+//     </span>
+//   `,
+//   computed: {
+//     statusIcon() {
+//       switch (this.status) {
+//         case 'sent': return '✓';
+//         case 'delivered': return '✓✓';
+//         case 'read': return '✓✓';
+//         default: return '';
+//       }
+//     }
+//   }
+// };
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -217,23 +222,19 @@ const handleEditComplete = async (messageData) => {
   if (editingMessageId.value) {
     try {
       if (router.currentRoute.value.params.channelId) {
-        const editedMessage = await store.dispatch('messages/updateMessage', {
-          _id: editingMessageId.value,
-          content: messageData.content,
-          type: 'channel',
-          channelId: store.state.channels.currentChannel._id,
-          token: store.state.auth.token
+        const editedMessage = await store.dispatch('messages/editChannelMessage', {
+          channelId: router.currentRoute.value.params.channelId,
+          messageId: editingMessageId.value,
+          content: messageData.content
         });
-        sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.channelId);
-      } else if (router.currentRoute.value.params.id) {
-        const editedMessage = await store.dispatch('conversations/updateMessage', {
-          _id: editingMessageId.value,
-          content: messageData.content,
-          type: 'conversation',
-          conversationId: router.currentRoute.value.params.id,
-          token: store.state.auth.token
+        sendChannelMessageEdit(editedMessage.channelId, editedMessage._id, editedMessage.content);
+      } else if (router.currentRoute.value.params.conversationId) {
+        const editedMessage = await store.dispatch('messages/editConversationMessage', {
+          conversationId: router.currentRoute.value.params.conversationId,
+          messageId: editingMessageId.value,
+          content: messageData.content
         });
-        sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.conversationId);
+        sendConversationMessageEdit(editedMessage.conversationId, editedMessage._id, editedMessage.content);
       }
       editingMessageId.value = null;
       hoveredMessage.value = null;
@@ -241,6 +242,34 @@ const handleEditComplete = async (messageData) => {
     } catch (error) {
       console.error('Failed to update message:', error);
     }
+  }
+};
+
+const handleSendMessage = async (messageData) => {
+  try {
+    if (router.currentRoute.value.params.channelId) {
+      // Handle channel message
+      const messageResponse = await store.dispatch('messages/sendChannelMessage', {
+        content: messageData.content,
+        channelId: router.currentRoute.value.params.channelId,
+        user: store.state.auth.user.user._id,
+        threadId: messageData.threadId || null,
+        attachments: messageData.attachments || [],
+        type: 'channel'
+      });
+      sendRealtimeMessage(messageResponse);
+    } else if (router.currentRoute.value.params.conversationId) {
+      // Handle conversation message
+      const messageResponse = await store.dispatch('messages/sendConversationMessage', {
+        conversationId: router.currentRoute.value.params.conversationId,
+        content: messageData.content,
+        type: 'conversation',
+        attachments: messageData.attachments || []
+      });
+      sendConversationMessage(messageResponse);
+    }
+  } catch (error) {
+    console.error('Failed to send message:', error);
   }
 };
 

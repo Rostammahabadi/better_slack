@@ -2,113 +2,28 @@ import { api } from '@/services/api';
 
 const state = {
   conversations: [],
+  activeUsers: {}, // { conversationId: Set<userId> }
+  typingUsers: {}, // { conversationId: Set<userId> }
   currentConversation: null,
-  messages: [],
   isLoading: false,
-  error: null,
-  nextCursor: null,
-  hasMoreMessages: true,
-  participantTyping: {},
-}
+  error: null
+};
 
 const getters = {
-  getConversations: (state) => state.conversations,
-  getCurrentConversation: (state) => state.currentConversation,
-  getMessages: (state) => state.messages,
-  getIsLoading: (state) => state.isLoading,
-  getError: (state) => state.error,
-  getHasMoreMessages: (state) => state.hasMoreMessages,
-  getParticipantTyping: (state) => state.participantTyping,
-}
+  getConversations: state => state.conversations,
+  getCurrentConversation: state => state.currentConversation,
+  getActiveUsers: state => conversationId => state.activeUsers[conversationId] || new Set(),
+  getTypingUsers: state => conversationId => state.typingUsers[conversationId] || new Set(),
+  getIsLoading: state => state.isLoading,
+  getError: state => state.error
+};
 
 const actions = {
   async fetchConversations({ commit }) {
     try {
-      commit('setLoading', true)
-      const response = await api.get('/conversations')
-      commit('setConversations', response.data)
-    } catch (error) {
-      commit('setError', error.message)
-    } finally {
-      commit('setLoading', false)
-    }
-  },
-
-  async fetchConversation({ commit }, conversationId) {
-    try {
-      commit('setLoading', true)
-      const response = await api.get(`/conversations/${conversationId}`)
-      commit('setCurrentConversation', response.data)
-    } catch (error) {
-      commit('setError', error.message)
-    } finally {
-      commit('setLoading', false)
-    }
-  },
-
-  async fetchMessages({ commit, state }, { conversationId, cursor = null }) {
-    try {
-      commit('setLoading', true)
-      const response = await api.get(`/conversations/${conversationId}/messages`, {
-        params: { cursor },
-      })
-      const { messages, nextCursor, hasMore } = response.data
-      
-      if (cursor) {
-        commit('appendMessages', messages)
-      } else {
-        commit('setMessages', messages)
-      }
-      
-      commit('setNextCursor', nextCursor)
-      commit('setHasMoreMessages', hasMore)
-    } catch (error) {
-      commit('setError', error.message)
-    } finally {
-      commit('setLoading', false)
-    }
-  },
-
-  async sendMessage({ commit }, { message, token }) {
-    try {
-      const response = await api.post(`/conversations/${message.conversationId}/messages`, message);
-      commit('addMessage', response.data);
-      return response.data;
-    } catch (error) {
-      commit('setError', error.message);
-      throw error;
-    }
-  },
-
-  async createConversation({ commit }, { participants, message }) {
-    try {
-      const response = await api.post('/conversations', {
-        participants,
-        message,
-      })
-      commit('addConversation', response.data)
-      return response.data
-    } catch (error) {
-      commit('setError', error.message)
-      throw error
-    }
-  },
-
-  // WebSocket event handlers
-  handleNewMessage({ commit }, message) {
-    commit('addMessage', message)
-  },
-
-  handleTypingStatus({ commit }, { conversationId, userId, isTyping }) {
-    commit('setParticipantTyping', { conversationId, userId, isTyping })
-  },
-
-  async fetchConversationMessages({ commit }, { conversationId, token }) {
-    try {
       commit('setLoading', true);
-      const response = await api.get(`/conversations/${conversationId}/messages`);
-      commit('setMessages', response.data.messages);
-      commit('setNextCursor', response.data.nextCursor);
+      const response = await api.get('/conversations');
+      commit('setConversations', response.data);
     } catch (error) {
       commit('setError', error.message);
     } finally {
@@ -116,107 +31,65 @@ const actions = {
     }
   },
 
-  async setCurrentConversation({ commit, state }, { conversationId }) {
-    const conversation = state.conversations.find(c => c._id === conversationId);
-    if (conversation) {
-      commit('setCurrentConversation', conversation);
-    }
-  },
-
-  async updateMessage({ commit }, { messageId, content, conversationId, token }) {
+  async createConversation({ commit }, { participants }) {
     try {
-      const response = await api.put(`/conversations/${conversationId}/messages/${messageId}`, {
-        content
-      });
-      commit('updateMessage', response.data);
+      commit('setLoading', true);
+      const response = await api.post('/conversations', { participants });
+      commit('addConversation', response.data);
       return response.data;
     } catch (error) {
       commit('setError', error.message);
       throw error;
+    } finally {
+      commit('setLoading', false);
     }
   },
 
-  async addReaction({ commit }, { messageId, reaction, conversationId, token }) {
-    try {
-      const response = await api.post(`/conversations/${conversationId}/messages/${messageId}/reactions`, {
-        emoji: reaction
-      });
-      commit('addReaction', { messageId, reaction: response.data });
-      return response.data;
-    } catch (error) {
-      commit('setError', error.message);
-      throw error;
-    }
-  },
-
-  async removeReaction({ commit }, { messageId, reactionId, conversationId, token }) {
-    try {
-      await api.delete(`/conversations/${conversationId}/messages/${messageId}/reactions/${reactionId}`);
-      commit('removeReaction', { messageId, reactionId });
-    } catch (error) {
-      commit('setError', error.message);
-      throw error;
-    }
+  setCurrentConversation({ commit }, conversation) {
+    commit('setCurrentConversation', conversation);
   }
-}
+};
 
 const mutations = {
   setConversations(state, conversations) {
     state.conversations = conversations;
   },
 
+  addConversation(state, conversation) {
+    state.conversations = [...state.conversations, conversation];
+  },
+
   setCurrentConversation(state, conversation) {
     state.currentConversation = conversation;
   },
 
-  setMessages(state, messages) {
-    state.messages = messages;
+  updateConversationUsers(state, { conversationId, users }) {
+    state.activeUsers = {
+      ...state.activeUsers,
+      [conversationId]: new Set(users)
+    };
   },
 
-  appendMessages(state, messages) {
-    state.messages = [...messages, ...state.messages];
-  },
-
-  addMessage(state, message) {
-    state.messages.push(message);
-    // Update last message in conversations list
-    const conversationIndex = state.conversations.findIndex(
-      conv => conv._id === message.conversationId
-    );
-    if (conversationIndex !== -1) {
-      state.conversations[conversationIndex].lastMessage = message;
+  removeUser(state, { conversationId, userId }) {
+    const users = state.activeUsers[conversationId];
+    if (users) {
+      users.delete(userId);
+    }
+    const typingUsers = state.typingUsers[conversationId];
+    if (typingUsers) {
+      typingUsers.delete(userId);
     }
   },
 
-  updateMessage(state, updatedMessage) {
-    const index = state.messages.findIndex(msg => msg._id === updatedMessage._id);
-    if (index !== -1) {
-      state.messages.splice(index, 1, updatedMessage);
+  setUserTyping(state, { conversationId, userId, isTyping }) {
+    if (!state.typingUsers[conversationId]) {
+      state.typingUsers[conversationId] = new Set();
     }
-  },
-
-  addReaction(state, { messageId, reaction }) {
-    const message = state.messages.find(msg => msg._id === messageId);
-    if (message) {
-      if (!message.reactions) {
-        message.reactions = [];
-      }
-      message.reactions.push(reaction);
+    if (isTyping) {
+      state.typingUsers[conversationId].add(userId);
+    } else {
+      state.typingUsers[conversationId].delete(userId);
     }
-  },
-
-  removeReaction(state, { messageId, reactionId }) {
-    const message = state.messages.find(msg => msg._id === messageId);
-    if (message && message.reactions) {
-      const index = message.reactions.findIndex(r => r._id === reactionId);
-      if (index !== -1) {
-        message.reactions.splice(index, 1);
-      }
-    }
-  },
-
-  addConversation(state, conversation) {
-    state.conversations.unshift(conversation)
   },
 
   setLoading(state, isLoading) {
@@ -225,35 +98,13 @@ const mutations = {
 
   setError(state, error) {
     state.error = error;
-  },
-
-  setNextCursor(state, cursor) {
-    state.nextCursor = cursor;
-  },
-
-  setHasMoreMessages(state, hasMore) {
-    state.hasMoreMessages = hasMore;
-  },
-
-  setParticipantTyping(state, { conversationId, userId, isTyping }) {
-    state.participantTyping = {
-      ...state.participantTyping,
-      [conversationId]: {
-        ...(state.participantTyping[conversationId] || {}),
-        [userId]: isTyping,
-      },
-    };
-  },
-
-  clearError(state) {
-    state.error = null
-  },
-}
+  }
+};
 
 export default {
   namespaced: true,
   state,
   getters,
   actions,
-  mutations,
-} 
+  mutations
+}; 

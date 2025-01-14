@@ -143,7 +143,7 @@ const actions = {
       };
       
       const response = await api.post(`/conversations/${conversationId}/messages`, message);
-      commit('addConversationMessage', { conversationId, message: response.data });
+      // Don't commit the message here, it will be added when received through the socket
       return response.data;
     } catch (error) {
       commit('setError', error.message);
@@ -223,6 +223,56 @@ const actions = {
         }
       }
       
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async addMessage({ commit }, { message, type }) {
+    try {
+      if (type === 'channel') {
+        commit('addChannelMessage', { 
+          channelId: message.channelId, 
+          message 
+        });
+      } else if (type === 'conversation') {
+        commit('addConversationMessage', { 
+          conversationId: message.conversationId, 
+          message 
+        });
+      }
+      return message;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async editConversationMessage({ commit }, { conversationId, messageId, content }) {
+    try {
+      const response = await api.put(`/conversations/${conversationId}/messages/${messageId}`, {
+        content,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Don't commit the edit here, it will be updated when received through the socket
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async editChannelMessage({ commit }, { channelId, messageId, content }) {
+    try {
+      const response = await api.put(`/channels/${channelId}/messages/${messageId}`, {
+        content,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Don't commit the edit here, it will be updated when received through the socket
       return response.data;
     } catch (error) {
       commit('setError', error.message);
@@ -397,6 +447,67 @@ const mutations = {
         message.thread = { replies: [] };
       }
       message.thread.replies = [...(message.thread.replies || []), reply];
+    }
+  },
+
+  ADD_CONVERSATION_REACTION(state, { messageId, reaction, conversationId }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (!message.reactions) {
+        message.reactions = [];
+      }
+      message.reactions.push(reaction);
+    }
+  },
+
+  REMOVE_CONVERSATION_REACTION(state, { messageId, reaction, conversationId }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (message.reactions) {
+        const reactionIndex = message.reactions.findIndex(r => r._id === reaction._id);
+        if (reactionIndex !== -1) {
+          message.reactions.splice(reactionIndex, 1);
+        }
+      }
+    }
+  },
+
+  UPDATE_CONVERSATION_MESSAGE(state, { conversationId, messageId, content }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        content,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  },
+
+  updateMessageDeliveryStatus(state, { messageId, conversationId, status }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        status
+      };
+    }
+  },
+
+  UPDATE_CHANNEL_MESSAGE(state, { channelId, messageId, message }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        ...message,
+        updatedAt: new Date().toISOString()
+      };
     }
   }
 };

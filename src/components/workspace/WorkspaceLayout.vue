@@ -59,6 +59,7 @@
         <div class="thread-reply-input">
           <TextEditor 
             placeholder="Reply in thread..."
+            @edit-message="sendEditThreadReply"
             @send-message="sendThreadReply"
           />
         </div>
@@ -77,7 +78,7 @@ import { useStore } from 'vuex';
 import { useSocket } from '../../services/socketService';
 
 const store = useStore();
-const { sendWorkspaceJoined } = useSocket(store);
+const { sendWorkspaceJoined, sendChannelMessageEdit, sendConversationMessageEdit } = useSocket(store);
 
 const showThreadSidebar = computed(() => {
   const activeThread = store.getters['messages/getActiveThread'];
@@ -97,6 +98,26 @@ const formatTimestamp = (timestamp) => {
 
 const closeThread = () => {
   store.dispatch('messages/setActiveThread', null);
+};
+
+const sendEditThreadReply = async (messageData) => {
+  if (!messageData.content.trim() || !threadParentMessage.value) return;
+
+  if (threadParentMessage.value.type === 'channel') {
+    await store.dispatch('messages/editChannelMessage', {
+      channelId: threadParentMessage.value.channelId,
+      messageId: messageData.messageId,
+      content: messageData.content
+    });
+    sendChannelMessageEdit(threadParentMessage.value.channelId, messageData.messageId, messageData.content);
+  } else if (threadParentMessage.value.type === 'conversation') {
+    await store.dispatch('messages/editConversationMessage', {
+      conversationId: threadParentMessage.value.conversationId,
+      messageId: messageData.messageId,
+      content: messageData.content
+    });
+    sendConversationMessageEdit(threadParentMessage.value.conversationId, messageData.messageId, messageData.content);
+  }
 };
 
 const sendThreadReply = async (messageData) => {

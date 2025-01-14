@@ -1,17 +1,16 @@
 import { ref, onUnmounted } from 'vue';
 import { io } from 'socket.io-client';
 
-let socket = null; // Make socket a module-level variable
+let socket = null;
 
 export function useSocket(store) {
   const isConnected = ref(false);
-
   const channelUsers = ref([]);
   const messages = ref([]);
   const typingUsers = ref(new Set());
 
   const initSocket = (token) => {
-    if (socket) return; // Prevent multiple socket instances
+    if (socket) return;
     socket = io(process.env.VITE_SOCKET_URL, {
       autoConnect: false,
       withCredentials: true,
@@ -19,6 +18,7 @@ export function useSocket(store) {
         token: token
       }
     });
+
     // Connection events
     socket.on('connect', () => {
       isConnected.value = true;
@@ -30,13 +30,21 @@ export function useSocket(store) {
       console.log('Disconnected from server');
     });
 
+    socket.on('error', (error) => {
+      store.commit('setError', error.message);
+    });
+
+    socket.on('connect_error', (error) => {
+      store.commit('setConnectionError', error.message);
+    });
+
     // Channel events
     socket.on('channel:users', (users) => {
       channelUsers.value = users;
     });
 
     socket.on('channel:message', (message) => {
-      store.dispatch('messages/addMessage', message);
+      store.dispatch('messages/addMessage', { message, type: 'channel' });
     });
 
     socket.on('channel:typing', ({ username, isTyping }) => {
@@ -46,6 +54,7 @@ export function useSocket(store) {
         typingUsers.value.delete(username);
       }
     });
+
     socket.on('channel:user_joined', ({ userId, channelId }) => {
       console.log(`User ${userId} joined channel ${channelId}`);
     });
@@ -55,6 +64,29 @@ export function useSocket(store) {
       typingUsers.value.delete(username);
     });
 
+    // Conversation events
+    socket.on('conversation:message', (message) => {
+      store.dispatch('messages/addMessage', { message, type: 'conversation' });
+    });
+
+    socket.on('conversation:typing', ({ conversationId, userId, isTyping }) => {
+      store.commit('conversations/setUserTyping', { conversationId, userId, isTyping });
+    });
+
+    socket.on('conversation:users', ({ conversationId, users }) => {
+      store.commit('conversations/updateConversationUsers', { conversationId, users });
+    });
+
+    socket.on('conversation:user_joined', ({ conversationId, userId }) => {
+      console.log(`User ${userId} joined conversation ${conversationId}`);
+    });
+
+    socket.on('conversation:user_left', ({ conversationId, userId }) => {
+      console.log(`User ${userId} left conversation ${conversationId}`);
+      store.commit('conversations/removeUser', { conversationId, userId });
+    });
+
+    // Reaction events
     socket.on('channel:reaction', ({ channelId, messageId, reaction }) => {
       store.commit('messages/ADD_REACTION', { messageId, reaction, channelId });
     });
@@ -63,20 +95,33 @@ export function useSocket(store) {
       store.commit('messages/REMOVE_REACTION', { messageId, reaction, channelId });
     });
 
-    socket.on('channel:edit_message', ({ channelId, messageId, message }) => {
-      store.commit('messages/UPDATE_MESSAGE', { channelId, messageId, message });
+    // Conversation events
+    socket.on('conversation:reaction', ({ conversationId, messageId, reaction }) => {
+      store.commit('messages/ADD_CONVERSATION_REACTION', { messageId, reaction, conversationId });
     });
 
-    socket.on('channel:create', (channel) => {
-      store.commit('channels/ADD_CHANNEL', channel.channel);
+    socket.on('conversation:reaction_removed', ({ conversationId, messageId, reaction }) => {
+      store.commit('messages/REMOVE_CONVERSATION_REACTION', { messageId, reaction, conversationId });
+    });
+
+    // Message edit events
+    socket.on('channel:edit_message', ({ channelId, messageId, message }) => {
+      store.commit('messages/UPDATE_CHANNEL_MESSAGE', {
+        channelId,
+        messageId,
+        message
+      });
+    });
+
+    socket.on('conversation:edit_message', ({ conversationId, messageId, content }) => {
+      store.commit('messages/UPDATE_CONVERSATION_MESSAGE', { conversationId, messageId, content });
     });
   };
 
   // Channel actions
   const joinChannel = (channelId, user) => {
     if (!socket) return;
-    console.log("joining channel", channelId, user._id); // Assuming user has _id
-    socket.emit('channel:join', channelId, user._id); // Send as separate parameters
+    socket.emit('channel:join', channelId, user._id);
   };
 
   const leaveChannel = (channelId) => {
@@ -86,11 +131,38 @@ export function useSocket(store) {
     typingUsers.value.clear();
   };
 
-  const sendChannelCreated = (channel) => {
+  const sendWorkspaceLeft = (workspaceId, user) => {
     if (!socket) return;
-    socket.emit('channel:create', channel);
+    socket.emit('workspace:leave', workspaceId, user._id);
   };
-  
+
+  const sendWorkspaceJoined = (workspaceId, user) => {
+    if (!socket) return;
+    socket.emit('workspace:join', workspaceId, user._id);
+  };
+
+  // Conversation actions
+  const sendConversationConnected = (conversationId, user) => {
+    if (!socket) return;
+    socket.emit('conversation:connect', conversationId, user._id);
+  };
+
+  const sendConversationLeft = (conversationId, user) => {
+    if (!socket) return;
+    socket.emit('conversation:leave', conversationId, user._id);
+  };
+
+  const sendConversationTyping = (conversationId, isTyping) => {
+    if (!socket) return;
+    socket.emit('conversation:typing', { conversationId, isTyping });
+  };
+
+  const sendConversationMessage = (message) => {
+    if (!socket) return;
+    socket.emit('conversation:message', message);
+  };
+
+  // Message actions
   const sendRealtimeMessage = (message) => {
     if (!socket) return;
     socket.emit('channel:message', message);
@@ -101,9 +173,19 @@ export function useSocket(store) {
     socket.emit('channel:reaction', { messageId, reaction, channelId });
   };
 
+  const sendConversationReaction = (messageId, reaction, conversationId) => {
+    if (!socket) return;
+    socket.emit('conversation:reaction', { messageId, reaction, conversationId });
+  };
+
   const sendReactionRemoved = (messageId, reaction, channelId) => {
     if (!socket) return;
     socket.emit('channel:reaction_removed', { messageId, reaction, channelId });
+  };
+
+  const sendConversationReactionRemoved = (messageId, reaction, conversationId) => {
+    if (!socket) return;
+    socket.emit('conversation:reaction_removed', { messageId, reaction, conversationId });
   };
 
   const sendEditMessage = (messageId, message, channelId) => {
@@ -111,22 +193,9 @@ export function useSocket(store) {
     socket.emit('channel:edit_message', { messageId, message, channelId });
   };
 
-  const sendTyping = (isTyping, channelId) => {
+  const sendEditConversationMessage = (messageId, message, conversationId) => {
     if (!socket) return;
-    socket.emit('channel:typing', {
-      channelId: channelId,
-      isTyping
-    });
-  };
-
-  const sendWorkspaceJoined = (workspaceId, user) => {
-    if (!socket) return;
-    socket.emit('workspace:join', workspaceId, user._id);
-  };
-
-  const sendWorkspaceLeft = (workspaceId, user) => {
-    if (!socket) return;
-    socket.emit('workspace:leave', workspaceId, user._id);
+    socket.emit('conversation:edit_message', { messageId, message, conversationId });
   };
 
   // Connect/Disconnect methods
@@ -137,15 +206,40 @@ export function useSocket(store) {
 
   const disconnect = () => {
     if (!socket) return;
+    
+    // Clean up all conversations
+    Object.keys(store.state.conversations.activeUsers).forEach(conversationId => {
+      sendConversationLeft(conversationId, store.state.auth.user);
+    });
+    
     socket.disconnect();
     socket.removeAllListeners();
     socket = null;
   };
 
-  // Cleanup on component unmount
   onUnmounted(() => {
     disconnect();
   });
+
+  const sendChannelMessageEdit = (channelId, messageId, content) => {
+    if (socket) {
+      socket.emit('channel:edit_message', {
+        channelId,
+        messageId,
+        content
+      });
+    }
+  };
+
+  const sendConversationMessageEdit = (conversationId, messageId, content) => {
+    if (socket) {
+      socket.emit('conversation:edit_message', {
+        conversationId,
+        messageId,
+        content
+      });
+    }
+  };
 
   return {
     isConnected,
@@ -157,12 +251,19 @@ export function useSocket(store) {
     joinChannel,
     leaveChannel,
     sendRealtimeMessage,
-    sendTyping,
+    sendConversationMessage,
+    sendConversationConnected,
+    sendConversationLeft,
+    sendConversationTyping,
     sendReaction,
-    sendEditMessage,
+    sendConversationReaction,
     sendReactionRemoved,
+    sendConversationReactionRemoved,
+    sendEditMessage,
+    sendEditConversationMessage,
     sendWorkspaceJoined,
     sendWorkspaceLeft,
-    sendChannelCreated
+    sendChannelMessageEdit,
+    sendConversationMessageEdit
   };
 }

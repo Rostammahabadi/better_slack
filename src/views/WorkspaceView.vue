@@ -44,7 +44,9 @@
       <div class="message-input">
         <TextEditor 
           @send-message="sendMessage" 
+          @edit-message="editMessage"
           :placeholder="getPlaceholder"
+          :messages="messages"
         />
       </div>
     </div>
@@ -63,11 +65,15 @@ import { useSocket } from '../services/socketService';
 const store = useStore();
 const {
   joinChannel,
+  leaveChannel,
   sendRealtimeMessage,
+  sendConversationMessage,
   connect,
   sendWorkspaceJoined,
   sendWorkspaceLeft,
-  leaveChannel
+  sendConversationConnected,
+  sendConversationLeft,
+  sendChannelMessageEdit
 } = useSocket(store);
 
 const route = useRoute();
@@ -100,9 +106,6 @@ onMounted(async () => {
       workspaceId, 
       token: token.value 
     });
-
-    // Notify that we've joined the workspace
-    sendWorkspaceJoined(workspaceId, currentUser.value);
 
     store.dispatch('workspaces/fetchWorkspaces', token.value);
     
@@ -144,10 +147,22 @@ onUnmounted(() => {
 
 // Watch for channel changes
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
+  if (oldChannel) {
+    // Leave the old channel
+    leaveChannel(oldChannel);
+  }
+  
+  // If we were in a conversation, leave it
+  if (route.params.conversationId) {
+    sendConversationLeft(route.params.conversationId, currentUser.value);
+  }
+
   if (newChannel) {
     // Clear current conversation and thread when switching to a channel
     store.commit('conversations/setCurrentConversation', null);
     store.dispatch('messages/setActiveThread', null);
+    
+    // Join the new channel
     joinChannel(newChannel, currentUser.value);
     
     if (newChannel !== oldChannel) {
@@ -163,10 +178,23 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
 
 // Watch for conversation changes
 watch(() => route.params.conversationId, async (newConversationId, oldConversationId) => {
+  if (oldConversationId) {
+    // Leave the old conversation
+    sendConversationLeft(oldConversationId, currentUser.value);
+  }
+  
+  // If we were in a channel, leave it
+  if (route.params.channelId) {
+    leaveChannel(route.params.channelId);
+  }
+
   if (newConversationId) {
     // Clear current channel and thread when switching to a conversation
     store.dispatch('channels/setCurrentChannel', { channel: null });
     store.dispatch('messages/setActiveThread', null);
+    
+    // Join the new conversation
+    sendConversationConnected(newConversationId, currentUser.value);
     
     try {
       await store.dispatch('messages/fetchConversationMessages', {
@@ -247,7 +275,7 @@ const sendMessage = async (messageData) => {
         type: 'conversation',
         attachments: messageData.attachments || []
       });
-      sendRealtimeMessage(messageResponse);
+      sendConversationMessage(messageResponse);
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -283,18 +311,22 @@ const handleDrop = (e) => {
 
 // Add computed property for placeholder
 const getPlaceholder = computed(() => {
-  if (currentChannel.value) {
-    return `Message #${currentChannel.value.name}`;
+  if (currentChannel) {
+    return `Message #${currentChannel.name}`;
   } else if (currentConversation.value) {
     if (currentConversation.value.participants.length === 2) {
       const otherUser = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
-      return `Message @${otherUser?.displayName}`;
+      return `Message @${otherUser?.displayName || 'Loading...'}`;
     } else {
-      return 'Message group';
+      return `Message ${currentConversation.value.participants.length} people`;
     }
   }
-  return 'Message';
+  return '';
 });
+
+const editConversationMessage = async (messageData) => {
+  console.log('editConversationMessage', messageData);
+};
 
 // Add new computed properties for header display
 const headerPrefix = computed(() => {
@@ -306,32 +338,63 @@ const headerPrefix = computed(() => {
 const headerName = computed(() => {
   if (currentChannel.value) {
     return currentChannel.value.name;
-  }
-  
-  if (currentConversation.value) {
+  } else if (currentConversation.value?.participants) {
     if (currentConversation.value.participants.length === 2) {
-      return currentConversation.value.participants.find(
-        p => p._id !== currentUser.value._id
-      )?.displayName;
+      const otherParticipant = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
+      return otherParticipant?.displayName || 'Loading...';
+    } else {
+      return currentConversation.value.participants
+        .filter(p => p._id !== currentUser.value._id)
+        .map(p => p.displayName)
+        .join(', ') || 'Loading...';
     }
-    return currentConversation.value.participants
-      .filter(p => p._id !== currentUser.value._id)
-      .map(p => p.displayName)
-      .join(', ');
   }
-  
-  return currentWorkspace.value?.name;
+  return currentWorkspace.value?.name || 'Loading...';
 });
 
 const headerDescription = computed(() => {
   if (currentChannel.value) {
-    return currentChannel.value.description;
+    return currentChannel.value.description || '';
+  } else if (currentConversation.value?.participants) {
+    const participantCount = currentConversation.value.participants.length;
+    if (participantCount === 2) {
+      return 'Direct Message';
+    } else {
+      return `${participantCount} members`;
+    }
   }
-  if (currentConversation.value) {
-    return 'Direct message conversation';
-  }
-  return 'Share announcements and updates about company news, upcoming events, or teammates who deserve some kudos. ⭐';
+  return '';
 });
+
+const editMessage = async (messageData) => {
+  try {
+    if (route.params.channelId) {
+      const messageResponse = await store.dispatch('messages/editChannelMessage', {
+        channelId: route.params.channelId,
+        messageId: messageData.messageId,
+        content: messageData.content
+      });
+      sendChannelMessageEdit(
+        route.params.channelId,
+        messageData.messageId,
+        messageResponse
+      );
+    } else if (route.params.conversationId) {
+      const messageResponse = await store.dispatch('messages/editConversationMessage', {
+        conversationId: route.params.conversationId,
+        messageId: messageData.messageId,
+        content: messageData.content
+      });
+      sendConversationMessage({
+        ...messageResponse,
+        type: 'conversation',
+        action: 'edit'
+      });
+    }
+  } catch (error) {
+    console.error('Error editing message:', error);
+  }
+};
 </script>
 
 <style scoped>

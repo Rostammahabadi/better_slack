@@ -122,7 +122,7 @@ const handleSend = () => {
 
   if (props.message) {
     // If we have a message prop, we're editing
-    emit('send-message', messageData);
+    emit('edit-message', messageData);
   } else {
     // If no message prop, we're sending a new message
     emit('send-message', messageData);
