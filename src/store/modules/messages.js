@@ -1,284 +1,509 @@
+import { api } from '@/services/api';
+
 const state = {
-  messagesByChannel: {},
+  channelMessages: {}, // { channelId: { messages: [], nextCursor: null, hasMore: true } }
+  conversationMessages: {}, // { conversationId: { messages: [], nextCursor: null, hasMore: true } }
+  currentChannelId: null,
+  currentConversationId: null,
   isLoading: false,
-  error: null,
-  messages: [],
-  currentDirectMessage: null,
   error: null,
   activeThread: null
 };
 
-const mutations = {
-  SET_MESSAGES(state, { channelId, messages }) {
-    state.messagesByChannel = {
-      ...state.messagesByChannel,
-      [channelId]: messages
-    };
+const getters = {
+  getChannelMessages: (state) => (channelId) => {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    // Filter out messages that are thread replies
+    return messages.filter(message => !message.threadId);
   },
-  ADD_MESSAGE(state, message) {
-    state.messages.push(message);
+  
+  getConversationMessages: (state) => (conversationId) => {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    // Filter out messages that are thread replies
+    return messages.filter(message => !message.threadId);
   },
-  UPDATE_MESSAGE(state, updatedMessage) {
-    const index = state.messages.findIndex(m => m._id === updatedMessage._id);
-    if (index !== -1) {
-      state.messages.splice(index, 1, updatedMessage);
+  hasMoreChannelMessages: (state) => (channelId) => {
+    return state.channelMessages[channelId]?.hasMore ?? false;
+  },
+  hasMoreConversationMessages: (state) => (conversationId) => {
+    return state.conversationMessages[conversationId]?.hasMore ?? false;
+  },
+  getChannelNextCursor: (state) => (channelId) => {
+    return state.channelMessages[channelId]?.nextCursor;
+  },
+  getConversationNextCursor: (state) => (conversationId) => {
+    return state.conversationMessages[conversationId]?.nextCursor;
+  },
+  getActiveThread: (state) => state.activeThread,
+  getIsLoading: (state) => state.isLoading,
+  getError: (state) => state.error,
+  getThreadReplies: (state) => (messageId) => {
+    // Search for thread replies in both channel and conversation messages
+    for (const channelData of Object.values(state.channelMessages)) {
+      const message = channelData.messages?.find(m => m._id === messageId);
+      if (message) {
+        // Find all replies for this thread
+        const replies = channelData.messages.filter(m => m.threadId === messageId);
+        return replies;
+      }
+    }
+    for (const conversationData of Object.values(state.conversationMessages)) {
+      const message = conversationData.messages?.find(m => m._id === messageId);
+    if (message) {
+        // Find all replies for this thread
+        const replies = conversationData.messages.filter(m => m.threadId === messageId);
+        return replies;
+      }
+    }
+    return [];
+  },
+  getThreadReplyCount: (state) => (messageId) => {
+    const replies = getters.getThreadReplies(state)(messageId);
+    return replies.length;
+  }
+};
+
+const actions = {
+  async fetchChannelMessages({ commit }, { channelId, cursor = null, limit = 30 }) {
+    try {
+      commit('setLoading', true);
+      const response = await api.get(`/channels/${channelId}/messages`, {
+        params: { limit, before: cursor }
+      });
+      
+      const { messages, nextCursor, hasMore } = response.data;
+      if (cursor) {
+        commit('appendChannelMessages', { channelId, messages });
+      } else {
+        commit('setChannelMessages', { channelId, messages });
+      }
+      commit('setChannelPagination', { channelId, nextCursor, hasMore });
+    } catch (error) {
+      commit('setError', error.message);
+    } finally {
+      commit('setLoading', false);
     }
   },
-  SET_CURRENT_DIRECT_MESSAGE(state, dm) {
-    state.currentDirectMessage = dm;
+
+  async fetchConversationMessages({ commit }, { conversationId, cursor = null, limit = 30 }) {
+    try {
+      commit('setLoading', true);
+      const response = await api.get(`/conversations/${conversationId}/messages`, {
+        params: { limit, before: cursor }
+      });
+      
+      const { messages, nextCursor, hasMore } = response.data;
+      if (cursor) {
+        commit('appendConversationMessages', { conversationId, messages });
+      } else {
+        commit('setConversationMessages', { conversationId, messages });
+      }
+      commit('setConversationPagination', { conversationId, nextCursor, hasMore });
+    } catch (error) {
+      commit('setError', error.message);
+    } finally {
+      commit('setLoading', false);
+    }
   },
-  SET_ERROR(state, error) {
+
+  async sendChannelMessage({ commit }, { channelId, content, attachments = [], user, threadId = null }) {
+    try {
+      const message = {
+        content,
+        channelId,
+        user,
+        threadId,
+        type: 'channel',
+        attachments,
+        status: 'sent',
+        reactions: [],
+        edited: false,
+        editHistory: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const response = await api.post(`/channels/${channelId}/messages`, message);
+      commit('addChannelMessage', { channelId, message: response.data });
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async sendConversationMessage({ commit }, { conversationId, content, attachments = [] }) {
+    try {
+      const message = {
+        content,
+        conversationId,
+        type: 'conversation',
+        attachments,
+        status: 'sent'
+      };
+      
+      const response = await api.post(`/conversations/${conversationId}/messages`, message);
+      // Don't commit the message here, it will be added when received through the socket
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  // WebSocket event handlers
+  handleNewMessage({ commit }, message) {
+    if (message.type === 'channel') {
+      commit('addChannelMessage', { channelId: message.channelId, message });
+    } else if (message.type === 'conversation') {
+      commit('addConversationMessage', { conversationId: message.conversationId, message });
+    }
+  },
+
+  handleMessageStatusUpdate({ commit }, { messageId, status, type, channelId, conversationId }) {
+    if (type === 'channel') {
+      commit('updateChannelMessageStatus', { channelId, messageId, status });
+    } else if (type === 'conversation') {
+      commit('updateConversationMessageStatus', { conversationId, messageId, status });
+    }
+  },
+
+  setActiveThread({ commit }, thread) {
+    commit('setActiveThread', thread);
+  },
+
+  async sendThreadReply({ commit }, { message, token }) {
+    try {
+      let response;
+      const messageData = {
+        content: message.content,
+        user: message.user,
+        type: 'thread',
+        status: 'sent',
+        threadId: message.threadId
+      };
+
+      if (message.channelId) {
+        // Handle channel thread replies
+        response = await api.post(
+          `/channels/${message.channelId}/messages/${message.threadId}/replies`, 
+          messageData
+        );
+        
+        // Don't commit the reply here, it will be added when received through the socket
+        return response.data;
+      } else if (message.conversationId) {
+        // Handle conversation thread replies
+        response = await api.post(
+          `/conversations/${message.conversationId}/messages/${message.threadId}/replies`, 
+          messageData
+        );
+        
+        // Don't commit the reply here, it will be added when received through the socket
+        return response.data;
+      }
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async addMessage({ commit }, { message, type }) {
+    try {
+      if (type === 'channel') {
+        commit('addChannelMessage', { 
+          channelId: message.channelId, 
+          message 
+        });
+      } else if (type === 'conversation') {
+        commit('addConversationMessage', { 
+          conversationId: message.conversationId, 
+          message 
+        });
+      }
+      return message;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async editConversationMessage({ commit }, { conversationId, messageId, content }) {
+    try {
+      const response = await api.put(`/conversations/${conversationId}/messages/${messageId}`, {
+        content,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Don't commit the edit here, it will be updated when received through the socket
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async editChannelMessage({ commit }, { channelId, messageId, content }) {
+    try {
+      const response = await api.put(`/channels/${channelId}/messages/${messageId}`, {
+        content,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Don't commit the edit here, it will be updated when received through the socket
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  }
+};
+
+const mutations = {
+  setChannelMessages(state, { channelId, messages }) {
+    state.channelMessages = {
+      ...state.channelMessages,
+      [channelId]: {
+        ...state.channelMessages[channelId],
+        messages
+      }
+    };
+  },
+
+  setConversationMessages(state, { conversationId, messages }) {
+    state.conversationMessages = {
+      ...state.conversationMessages,
+      [conversationId]: {
+        ...state.conversationMessages[conversationId],
+        messages
+      }
+    };
+  },
+
+  appendChannelMessages(state, { channelId, messages }) {
+    const currentMessages = state.channelMessages[channelId]?.messages || [];
+    state.channelMessages = {
+      ...state.channelMessages,
+      [channelId]: {
+        ...state.channelMessages[channelId],
+        messages: [...currentMessages, ...messages]
+      }
+    };
+  },
+
+  appendConversationMessages(state, { conversationId, messages }) {
+    const currentMessages = state.conversationMessages[conversationId]?.messages || [];
+    state.conversationMessages = {
+      ...state.conversationMessages,
+      [conversationId]: {
+        ...state.conversationMessages[conversationId],
+        messages: [...currentMessages, ...messages]
+      }
+    };
+  },
+
+  setChannelPagination(state, { channelId, nextCursor, hasMore }) {
+    state.channelMessages = {
+      ...state.channelMessages,
+      [channelId]: {
+        ...state.channelMessages[channelId],
+        nextCursor,
+        hasMore
+      }
+    };
+  },
+
+  setConversationPagination(state, { conversationId, nextCursor, hasMore }) {
+    state.conversationMessages = {
+      ...state.conversationMessages,
+      [conversationId]: {
+        ...state.conversationMessages[conversationId],
+        nextCursor,
+        hasMore
+      }
+    };
+  },
+
+  addChannelMessage(state, { channelId, message }) {
+    const currentMessages = state.channelMessages[channelId]?.messages || [];
+    
+    // If it's a thread reply, update the parent message's thread
+    if (message.threadId) {
+      const parentIndex = currentMessages.findIndex(m => m._id === message.threadId);
+      if (parentIndex !== -1) {
+        if (!currentMessages[parentIndex].thread) {
+          currentMessages[parentIndex].thread = { replies: [] };
+        }
+      }
+    }
+    
+    state.channelMessages = {
+      ...state.channelMessages,
+      [channelId]: {
+        ...state.channelMessages[channelId],
+        messages: [...currentMessages, message]
+      }
+    };
+  },
+
+  addConversationMessage(state, { conversationId, message }) {
+    const currentMessages = state.conversationMessages[conversationId]?.messages || [];
+    
+    // If it's a thread reply, update the parent message's thread
+    if (message.threadId) {
+      const parentIndex = currentMessages.findIndex(m => m._id === message.threadId);
+      if (parentIndex !== -1) {
+        // Initialize thread object if it doesn't exist
+        if (!currentMessages[parentIndex].thread) {
+          currentMessages[parentIndex].thread = { replies: [] };
+        }
+        // Add the reply to the thread
+        currentMessages[parentIndex].thread.replies = [
+          ...(currentMessages[parentIndex].thread.replies || []),
+          message
+        ];
+        
+        // Update the messages array with the modified parent message
+        state.conversationMessages = {
+          ...state.conversationMessages,
+          [conversationId]: {
+            ...state.conversationMessages[conversationId],
+            messages: [...currentMessages]
+          }
+        };
+        return;
+      }
+    }
+    
+    // If not a thread reply or parent not found, add as a regular message
+    state.conversationMessages = {
+      ...state.conversationMessages,
+      [conversationId]: {
+        ...state.conversationMessages[conversationId],
+        messages: [...currentMessages, message]
+      }
+    };
+  },
+
+  updateChannelMessageStatus(state, { channelId, messageId, status }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        status
+      };
+    }
+  },
+
+  updateConversationMessageStatus(state, { conversationId, messageId, status }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        status
+      };
+    }
+  },
+
+  setActiveThread(state, thread) {
+    state.activeThread = thread;
+  },
+
+  setLoading(state, isLoading) {
+    state.isLoading = isLoading;
+  },
+
+  setError(state, error) {
     state.error = error;
   },
-  SET_ACTIVE_THREAD(state, message) {
-    state.activeThread = message;
+
+  addChannelThreadReply(state, { channelId, threadId, reply }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === threadId);
+
+    if (messageIndex !== -1) {
+      messages.push(reply);
+    }
   },
-  ADD_REACTION(state, { messageId, reaction, channelId }) {
-    const message = state.messagesByChannel[channelId].find(m => m._id === messageId);
-    if (message) {
+
+  addConversationThreadReply(state, { conversationId, threadId, reply }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === threadId);
+
+    if (messageIndex !== -1) {
+      // Update the state with the new messages array
+      state.conversationMessages[conversationId].messages.push(reply);
+    }
+  },
+
+  ADD_CONVERSATION_REACTION(state, { messageId, reaction, conversationId }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
       if (!message.reactions) {
         message.reactions = [];
       }
       message.reactions.push(reaction);
     }
   },
-  REMOVE_REACTION(state, { messageId, reaction, channelId }) {
-    state.messagesByChannel[channelId] = state.messagesByChannel[channelId].map(msg => {
-      if (msg._id === messageId) {
-        return {
-          ...msg,
-          reactions: msg.reactions.filter(r => r._id !== reaction._id)
-        };
-      }
-      return msg;
-    });
-  },
-  RECEIVE_MESSAGE(state, { channelId, message }) {
-    if (!state.messagesByChannel[channelId]) {
-      state.messagesByChannel[channelId] = [];
-    }
-    state.messagesByChannel[channelId].push(message);
-  },
-  UPDATE_MESSAGE(state, { channelId, messageId, message }) {
-    if (state.messagesByChannel[channelId]) {
-      state.messagesByChannel[channelId] = state.messagesByChannel[channelId].map(msg => {
-        if (msg._id === messageId) {
-          return { ...msg, content: message };
-        }
-        return msg;
-      });
-    }
-  },
-  DELETE_MESSAGE(state, { channelId, messageId }) {
-    if (state.messagesByChannel[channelId]) {
-      state.messagesByChannel[channelId] = state.messagesByChannel[channelId].filter(msg => msg._id !== messageId);
-    }
-  },
-  ADD_MESSAGE(state, message) {
-    if (!state.messagesByChannel[message.channelId]) {
-      state.messagesByChannel[message.channelId] = [];
-    }
-    state.messagesByChannel[message.channelId].push(message);
-  },
-  SET_LOADING(state, isLoading) {
-    state.isLoading = isLoading;
-  },
-  ADD_THREAD_REPLY(state, { channelId, message }) {
-    if (!state.messagesByChannel[channelId]) {
-      state.messagesByChannel[channelId] = [];
-    }
-    state.messagesByChannel[channelId].push(message);
-  }
-};
 
-const actions = {
-  addMessage({ commit }, message) {
-    commit('ADD_MESSAGE', message);
-  },
-  async fetchMessages({ commit }, { channelId, token }) {
-    commit('SET_LOADING', true);
-    commit('SET_ERROR', null);
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/channels/${channelId}/messages`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
-      }
-
-      const messages = await response.json();
-      commit('SET_MESSAGES', { channelId, messages });
-      return messages;
-    } catch (error) {
-      commit('SET_ERROR', error.message);
-      throw error;
-    } finally {
-      commit('SET_LOADING', false);
-    }
-  },
-
-  async sendMessage({ commit }, { message, token }) {
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/channels/${message.channelId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(message)
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-      return response.json();
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-  },
-
-  async addReaction({ commit }, { messageId, reaction, token, currentChannel }) {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}/reactions`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({emoji: reaction})
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to add reaction');
-    }
-
-    const addedReaction = await response.json();
-    return addedReaction;
-  },
-
-  async removeReaction({ commit }, { messageId, reactionId, token, channelId }) { 
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}/reactions/${reactionId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+  REMOVE_CONVERSATION_REACTION(state, { messageId, reaction, conversationId }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (message.reactions) {
+        const reactionIndex = message.reactions.findIndex(r => r._id === reaction._id);
+        if (reactionIndex !== -1) {
+          message.reactions.splice(reactionIndex, 1);
         }
       }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to remove reaction');
     }
   },
 
-  receiveMessage({ commit, rootState }, message) {
-    const channelId = message.channelId;
-    if (channelId === rootState.channels.currentChannel?._id) {
-      commit('RECEIVE_MESSAGE', { channelId, message });
+  UPDATE_CONVERSATION_MESSAGE(state, { conversationId, messageId, content }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        content,
+        updatedAt: new Date().toISOString()
+      };
     }
   },
 
-  async updateMessage({ commit }, message) {
-    const messageId = message._id;
-    const token = message.token;
-
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/messages/${messageId}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(message)
-      }
-    );
-    if (!response.ok) {
-      throw new Error('Failed to update message');
-    }
-    return response.json();
-  },
-
-  deleteMessage({ commit, rootState }, messageId) {
-    const channelId = rootState.channels.currentChannel?._id;
-    if (channelId) {
-      commit('DELETE_MESSAGE', { channelId, messageId });
+  updateMessageDeliveryStatus(state, { messageId, conversationId, status }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        status
+      };
     }
   },
 
-  setActiveThread({ commit }, message) {
-    commit('SET_ACTIVE_THREAD', message);
-  },
-
-  async sendThreadReply({ commit }, { message, token }) {
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/channels/${message.channelId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            ...message,
-            threadId: message.threadId
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to send thread reply');
-      }
-
-      const newMessage = await response.json();
-      commit('ADD_THREAD_REPLY', { 
-        channelId: message.channelId, 
-        message: newMessage 
-      });
-      return newMessage;
-    } catch (error) {
-      console.error('Error sending thread reply:', error);
-      throw error;
+  UPDATE_CHANNEL_MESSAGE(state, { channelId, messageId, message }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        ...message,
+        updatedAt: new Date().toISOString()
+      };
     }
   }
-};
-
-const getters = {
-  getMessagesByChannel: (state) => (channelId) => {
-    return (state.messagesByChannel[channelId] || [])
-      .filter(message => !message.threadId);
-  },
-  getThreadReplies: (state) => (threadId) => {
-    const allChannelMessages = Object.values(state.messagesByChannel)
-      .flat()
-      .filter(message => message.threadId === threadId)
-      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    return allChannelMessages;
-  },
-  isLoading: (state) => state.isLoading,
-  error: (state) => state.error,
-  activeThread: (state) => state.activeThread
 };
 
 export default {
   namespaced: true,
   state,
-  mutations,
+  getters,
   actions,
-  getters
+  mutations
 }; 

@@ -59,6 +59,7 @@
         <div class="thread-reply-input">
           <TextEditor 
             placeholder="Reply in thread..."
+            @edit-message="sendEditThreadReply"
             @send-message="sendThreadReply"
           />
         </div>
@@ -77,10 +78,14 @@ import { useStore } from 'vuex';
 import { useSocket } from '../../services/socketService';
 
 const store = useStore();
-const { sendWorkspaceJoined } = useSocket(store);
+const { sendWorkspaceJoined, sendChannelMessageEdit, sendConversationMessageEdit, sendChannelThreadReply, sendConversationThreadReply } = useSocket(store);
 
-const showThreadSidebar = computed(() => store.getters['messages/activeThread'] !== null);
-const threadParentMessage = computed(() => store.getters['messages/activeThread']);
+const showThreadSidebar = computed(() => {
+  const activeThread = store.getters['messages/getActiveThread'];
+  return !!activeThread;
+});
+
+const threadParentMessage = computed(() => store.getters['messages/getActiveThread']);
 const threadReplies = computed(() => store.getters['messages/getThreadReplies'](threadParentMessage.value?._id));
 
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
@@ -95,19 +100,56 @@ const closeThread = () => {
   store.dispatch('messages/setActiveThread', null);
 };
 
+const sendEditThreadReply = async (messageData) => {
+  if (!messageData.content.trim() || !threadParentMessage.value) return;
+
+  if (threadParentMessage.value.type === 'channel') {
+    await store.dispatch('messages/editChannelMessage', {
+      channelId: threadParentMessage.value.channelId,
+      messageId: messageData.messageId,
+      content: messageData.content
+    });
+    sendChannelMessageEdit(threadParentMessage.value.channelId, messageData.messageId, messageData.content);
+  } else if (threadParentMessage.value.type === 'conversation') {
+    await store.dispatch('messages/editConversationMessage', {
+      conversationId: threadParentMessage.value.conversationId,
+      messageId: messageData.messageId,
+      content: messageData.content
+    });
+    sendConversationMessageEdit(threadParentMessage.value.conversationId, messageData.messageId, messageData.content);
+  }
+};
+
 const sendThreadReply = async (messageData) => {
   if (!messageData.content.trim() || !threadParentMessage.value) return;
   
   try {
-    await store.dispatch('messages/sendThreadReply', {
-      message: {
-        content: messageData.content,
-        channelId: threadParentMessage.value.channelId,
-        threadId: threadParentMessage.value._id,
-        user: store.state.auth.user.user._id
-      },
-      token: store.state.auth.token
+    const message = {
+      content: messageData.content,
+      user: store.state.auth.user.user._id,
+      threadId: threadParentMessage.value._id,
+      type: 'thread',
+      status: 'sent'
+    };
+
+    // Add either channelId or conversationId based on the parent message type
+    if (threadParentMessage.value.type === 'channel') {
+      message.channelId = threadParentMessage.value.channelId;
+    } else if (threadParentMessage.value.type === 'conversation') {
+      message.conversationId = threadParentMessage.value.conversationId;
+    }
+
+    const response = await store.dispatch('messages/sendThreadReply', {
+      message,
+      token: store.state.auth.user.token
     });
+
+    if (threadParentMessage.value.type === 'channel') {
+      sendChannelThreadReply(threadParentMessage.value.channelId, threadParentMessage.value._id, response);
+    } else if (threadParentMessage.value.type === 'conversation') {
+      sendConversationThreadReply(threadParentMessage.value.conversationId, threadParentMessage.value._id, response);
+    }
+
   } catch (error) {
     console.error('Failed to send thread reply:', error);
   }

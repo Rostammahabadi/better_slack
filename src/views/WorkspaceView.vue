@@ -30,21 +30,24 @@
       <div class="channel-header">
         <div class="channel-info">
           <h2 class="channel-name">
-            <span class="prefix">{{ currentChannel ? '#' : '@' }}</span>
-            {{ currentChannel?.name || currentDirectMessage?.user.displayName || currentWorkspace?.name }}
+            <span class="prefix">{{ headerPrefix }}</span>
+            {{ headerName }}
           </h2>
         </div>
         <div class="channel-description">
-          {{ currentChannel?.description || 
-             (currentDirectMessage ? 'Direct message conversation' : 
-             'Share announcements and updates about company news, upcoming events, or teammates who deserve some kudos. ⭐') }}
+          {{ headerDescription }}
         </div>
       </div>
       
       <MessageList/>
 
       <div class="message-input">
-        <TextEditor @send-message="sendMessage" :placeholder="currentChannel ? `Message #${currentChannel.name}` : 'Message'" />
+        <TextEditor 
+          @send-message="sendMessage" 
+          @edit-message="editMessage"
+          :placeholder="getPlaceholder"
+          :messages="messages"
+        />
       </div>
     </div>
   </WorkspaceLayout>
@@ -62,11 +65,15 @@ import { useSocket } from '../services/socketService';
 const store = useStore();
 const {
   joinChannel,
+  leaveChannel,
   sendRealtimeMessage,
+  sendConversationMessage,
   connect,
   sendWorkspaceJoined,
   sendWorkspaceLeft,
-  leaveChannel
+  sendConversationConnected,
+  sendConversationLeft,
+  sendChannelMessageEdit
 } = useSocket(store);
 
 const route = useRoute();
@@ -76,7 +83,12 @@ const router = useRouter();
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
 
-const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
+const currentDirectMessage = computed(() => {
+  if (route.params.id) {
+    return currentConversation.value;
+  }
+  return null;
+});
 
 const error = computed(() => 
   store.getters['workspaces/error'] || 
@@ -94,9 +106,6 @@ onMounted(async () => {
       workspaceId, 
       token: token.value 
     });
-
-    // Notify that we've joined the workspace
-    sendWorkspaceJoined(workspaceId, currentUser.value);
 
     store.dispatch('workspaces/fetchWorkspaces', token.value);
     
@@ -136,21 +145,75 @@ onUnmounted(() => {
   }
 });
 
-// Watch for channel changes to update URL and load messages
+// Watch for channel changes
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
-  if (route.params.channelId) {
-    joinChannel(newChannel, currentUser.value);
+  if (oldChannel) {
+    // Leave the old channel
+    leaveChannel(oldChannel);
   }
-  if (newChannel && newChannel !== oldChannel) {
-    const channel = store.getters['channels/getChannelById'](newChannel);   
-    // Fetch messages for the new channel
-    await store.dispatch('messages/fetchMessages', {
-      channelId: newChannel,
-      token: token.value
-    });
+  
+  // If we were in a conversation, leave it
+  if (route.params.conversationId) {
+    sendConversationLeft(route.params.conversationId, currentUser.value);
+  }
+
+  if (newChannel) {
+    // Clear current conversation and thread when switching to a channel
+    store.commit('conversations/setCurrentConversation', null);
+    store.dispatch('messages/setActiveThread', null);
+    
+    // Join the new channel
+    joinChannel(newChannel, currentUser.value);
+    
+    if (newChannel !== oldChannel) {
+      const channel = store.getters['channels/getChannelById'](newChannel);   
+      await store.dispatch('messages/fetchChannelMessages', {
+        channelId: newChannel,
+        token: token.value,
+        limit: 30
+      });
+    }
   }
 });
 
+// Watch for conversation changes
+watch(() => route.params.conversationId, async (newConversationId, oldConversationId) => {
+  if (oldConversationId) {
+    // Leave the old conversation
+    sendConversationLeft(oldConversationId, currentUser.value);
+  }
+  
+  // If we were in a channel, leave it
+  if (route.params.channelId) {
+    leaveChannel(route.params.channelId);
+  }
+
+  if (newConversationId) {
+    // Clear current channel and thread when switching to a conversation
+    store.dispatch('channels/setCurrentChannel', { channel: null });
+    store.dispatch('messages/setActiveThread', null);
+    
+    // Join the new conversation
+    sendConversationConnected(newConversationId, currentUser.value);
+    
+    try {
+      await store.dispatch('messages/fetchConversationMessages', {
+        conversationId: newConversationId,
+        token: token.value,
+        limit: 30
+      });
+      
+      await store.dispatch('conversations/setCurrentConversation', {
+        conversationId: newConversationId,
+        token: token.value
+      });
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  }
+});
+
+// Watch for workspace changes
 watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => {
   if (newWorkspaceId && newWorkspaceId !== oldWorkspaceId) {
     try {
@@ -180,13 +243,16 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
   }
 });
 
+// Update computed properties
+const currentConversation = computed(() => store.getters['conversations/getCurrentConversation']);
+
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
   
   try {
     if (currentChannel.value) {
-      const message = {
+      const messageResponse = await store.dispatch('messages/sendChannelMessage', {
         content: messageData.content,
         channelId: currentChannel.value._id,
         user: currentUser.value._id,
@@ -197,33 +263,19 @@ const sendMessage = async (messageData) => {
         edited: false,
         editHistory: [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      const messageResponse = await store.dispatch('messages/sendMessage', {
-        message,
-        token: token.value
+        updatedAt: new Date().toISOString(),
+        type: 'channel',
+        attachments: messageData.attachments || []
       });
       sendRealtimeMessage(messageResponse);
-    } else if (currentDirectMessage.value) {
-      // Handle direct messages similarly
-      const message = {
+    } else if (route.params.conversationId) {
+      const messageResponse = await store.dispatch('messages/sendConversationMessage', {
+        conversationId: route.params.conversationId,
         content: messageData.content,
-        channelId: currentDirectMessage.value._id,
-        user: currentUser.value._id,
-        threadId: messageData.threadId || null,
-        attachments: messageData.attachments || [],
-        status: 'sent',
-        reactions: [],
-        edited: false,
-        editHistory: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await store.dispatch('messages/sendDirectMessage', {
-        message,
-        token: token.value
+        type: 'conversation',
+        attachments: messageData.attachments || []
       });
+      sendConversationMessage(messageResponse);
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -255,6 +307,93 @@ const handleDrop = (e) => {
   // Handle file drop here
   const files = Array.from(e.dataTransfer.files);
   // TODO: Implement file upload logic
+};
+
+// Add computed property for placeholder
+const getPlaceholder = computed(() => {
+  if (currentChannel) {
+    return `Message #${currentChannel.name}`;
+  } else if (currentConversation.value) {
+    if (currentConversation.value.participants.length === 2) {
+      const otherUser = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
+      return `Message @${otherUser?.displayName || 'Loading...'}`;
+    } else {
+      return `Message ${currentConversation.value.participants.length} people`;
+    }
+  }
+  return '';
+});
+
+const editConversationMessage = async (messageData) => {
+  console.log('editConversationMessage', messageData);
+};
+
+// Add new computed properties for header display
+const headerPrefix = computed(() => {
+  if (currentChannel.value) return '#';
+  if (currentConversation.value) return '@';
+  return '';
+});
+
+const headerName = computed(() => {
+  if (currentChannel.value) {
+    return currentChannel.value.name;
+  } else if (currentConversation.value?.participants) {
+    if (currentConversation.value.participants.length === 2) {
+      const otherParticipant = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
+      return otherParticipant?.displayName || 'Loading...';
+    } else {
+      return currentConversation.value.participants
+        .filter(p => p._id !== currentUser.value._id)
+        .map(p => p.displayName)
+        .join(', ') || 'Loading...';
+    }
+  }
+  return currentWorkspace.value?.name || 'Loading...';
+});
+
+const headerDescription = computed(() => {
+  if (currentChannel.value) {
+    return currentChannel.value.description || '';
+  } else if (currentConversation.value?.participants) {
+    const participantCount = currentConversation.value.participants.length;
+    if (participantCount === 2) {
+      return 'Direct Message';
+    } else {
+      return `${participantCount} members`;
+    }
+  }
+  return '';
+});
+
+const editMessage = async (messageData) => {
+  try {
+    if (route.params.channelId) {
+      const messageResponse = await store.dispatch('messages/editChannelMessage', {
+        channelId: route.params.channelId,
+        messageId: messageData.messageId,
+        content: messageData.content
+      });
+      sendChannelMessageEdit(
+        route.params.channelId,
+        messageData.messageId,
+        messageResponse
+      );
+    } else if (route.params.conversationId) {
+      const messageResponse = await store.dispatch('messages/editConversationMessage', {
+        conversationId: route.params.conversationId,
+        messageId: messageData.messageId,
+        content: messageData.content
+      });
+      sendConversationMessage({
+        ...messageResponse,
+        type: 'conversation',
+        action: 'edit'
+      });
+    }
+  } catch (error) {
+    console.error('Error editing message:', error);
+  }
 };
 </script>
 

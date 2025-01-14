@@ -5,6 +5,8 @@ import messages from './modules/messages';
 import auth from './modules/auth';
 import invites from './modules/invites';
 import socket from './modules/socket';
+import conversations from './modules/conversations';
+import users from './modules/users';
 
 export default createStore({
   modules: {
@@ -13,6 +15,8 @@ export default createStore({
     messages,
     auth,
     invites,
-    socket
+    socket,
+    conversations,
+    users
   }
 }); 

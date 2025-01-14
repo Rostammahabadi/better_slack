@@ -41,33 +41,40 @@
       <div class="sidebar-section">
         <div class="section-header">
           <span class="section-title">Direct messages</span>
-          <button class="add-button">+</button>
+          <button class="add-button" @click="showNewMessageModal = true">+</button>
         </div>
         <div class="section-items">
-          <!-- Workspace Members -->
+          <!-- Conversation Participants -->
           <div 
-            v-for="member in filteredMembers" 
-            :key="member.userId._id"
+            v-for="conversation in filteredParticipants" 
+            :key="conversation._id"
             class="section-item"
+            :class="{ active: route.params.conversationId === conversation._id }"
+            @click="selectConversation(conversation)"
           >
-            <img 
-              :src="member.userId.avatarUrl || ''" 
-              :alt="member.userId.displayName || 'User'"
-              class="user-avatar"
-            />
-            <span>{{ member.userId.displayName || 'Unknown User' }}</span>
-            <span v-if="member.role === 'admin'" class="role-label">admin</span>
-          </div>
-
-          <!-- Pending Invites -->
-          <div 
-            v-for="invite in storeData.sentInvites" 
-            :key="invite.id" 
-            class="section-item pending-invite"
-          >
-            <span class="status-icon">⏳</span>
-            <span>{{ invite.invitedEmail.split('@')[0] }}</span>
-            <span class="pending-label">pending</span>
+            <div class="conversation-avatar">
+              <img 
+                v-if="conversation.displayParticipants[0]?.avatarUrl"
+                :src="conversation.displayParticipants[0].avatarUrl" 
+                :alt="conversation.displayParticipants[0].displayName"
+                class="user-avatar"
+              />
+              <div v-else class="user-avatar-fallback">
+                {{ getInitials(conversation.displayParticipants[0]?.displayName) }}
+              </div>
+            </div>
+            
+            <div class="conversation-info">
+              <span v-if="conversation.displayParticipants.length === 1">
+                {{ conversation.displayParticipants[0].displayName }}
+              </span>
+              <span v-else>
+                {{ conversation.displayParticipants[0].displayName }}
+                <span class="additional-participants">
+                  +{{ conversation.displayParticipants.length - 1 }} others
+                </span>
+              </span>
+            </div>
           </div>
 
           <button class="invite-button" @click="showInviteModal = true">
@@ -90,26 +97,37 @@
       :workspace-id="storeData.workspace?._id"
       @close="showInviteModal = false"
     />
+
+    <!-- New Direct Message Modal -->
+    <NewDirectMessageModal
+      v-if="showNewMessageModal"
+      @close="showNewMessageModal = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
+import NewDirectMessageModal from '../modals/NewDirectMessageModal.vue';
 
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 const showCreateChannel = ref(false);
 const showInviteModal = ref(false);
+const showNewMessageModal = ref(false);
 const contextMenu = ref({
   show: false,
   x: 0,
   y: 0,
   channel: null
 });
+
+const conversations = computed(() => store.getters['conversations/getConversations']);
 
 // Add loading state
 const isLoading = ref(true);
@@ -122,6 +140,7 @@ const closeContextMenu = (e) => {
 };
 
 onMounted(() => {
+  store.dispatch('conversations/fetchConversations');
   document.addEventListener('click', closeContextMenu);
 });
 
@@ -140,15 +159,16 @@ const showContextMenu = (event, channel) => {
 };
 
 // Computed property for filtered workspace members
-const filteredMembers = computed(() => {
-  const workspace = store.getters['workspaces/currentWorkspace'];
-  const currentUser = store.getters['auth/currentUser'];
-  const members = workspace?.members || [];
-  
-  return members.filter(member => 
-    member && member._id && member._id !== currentUser?._id
-  );
-});
+const filteredParticipants = computed(() => {
+  const currentUser = store.getters['auth/currentUser']
+  if (!conversations.value) return [];
+  return conversations.value.map(conversation => ({
+    ...conversation,
+    displayParticipants: conversation.participants.filter(
+      p => p._id !== currentUser?._id
+    )
+  }))
+})
 
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
@@ -191,6 +211,26 @@ const selectChannel = async (channel) => {
 const onChannelCreated = (channel) => {
   // Select the newly created channel
   selectChannel(channel);
+};
+
+const getInitials = (name) => {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+const selectConversation = (conversation) => {
+  router.push({
+    name: 'conversation',
+    params: { 
+      workspaceId: storeData.value.workspace._id,
+      conversationId: conversation._id 
+    }
+  });
 };
 </script>
 
@@ -281,9 +321,11 @@ const onChannelCreated = (channel) => {
 .section-item {
   display: flex;
   align-items: center;
-  padding: 4px 16px;
-  cursor: pointer;
+  padding: 6px 8px;
   color: #ABABAD;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 8px;
 }
 
 .section-item:hover {
@@ -355,10 +397,35 @@ const onChannelCreated = (channel) => {
 .user-avatar {
   width: 24px;
   height: 24px;
-  border-radius: 4px;
-  margin-right: 8px;
+  border-radius: 50%;
   object-fit: cover;
+}
+
+.user-avatar-fallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background-color: #4B4B4B;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.additional-participants {
+  color: #9CA3AF;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .role-label {
@@ -374,5 +441,10 @@ const onChannelCreated = (channel) => {
   padding: 16px;
   text-align: center;
   color: #ABABAD;
+}
+
+.conversation-avatar {
+  flex-shrink: 0;
+  margin-right: 12px;
 }
 </style> 

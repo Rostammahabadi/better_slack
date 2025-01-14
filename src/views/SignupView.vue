@@ -66,17 +66,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
 const isLoading = ref(false);
 const error = ref('');
 const email = ref('');
+const auth0 = inject('auth0');
 
 const continueWithEmail = async () => {
   try {
     isLoading.value = true;
     error.value = '';
     // Implement signup logic here
-    await this.$auth0.loginWithRedirect({
+    await auth0.loginWithRedirect({
       screen_hint: 'signup',
       appState: { 
         targetUrl: window.location.pathname,
@@ -95,7 +96,7 @@ const signUpWithGoogle = async () => {
   try {
     isLoading.value = true;
     error.value = '';
-    await loginWithRedirect({
+    await auth0.loginWithRedirect({
       authorizationParams: {
         connection: 'google-oauth2',
         screen_hint: 'signup'
