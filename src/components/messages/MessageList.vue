@@ -53,9 +53,27 @@
           </button>
         </div>
         
-        <!-- Add Thread Reply Count -->
-        <div v-if="getThreadCount(message)" class="thread-count" @click="handleReply">
-          {{ getThreadCount(message) }} replies
+        <!-- Thread Reply Count and Preview -->
+        <div v-if="getThreadCount(message) > 0" class="thread-info" @click="handleReply">
+          <div class="thread-preview-content">
+            <div class="thread-header">
+              <div class="thread-left">
+                <img 
+                  v-if="getLastReplyUser(message)?.avatarUrl"
+                  :src="getLastReplyUser(message).avatarUrl" 
+                  :alt="`${getLastReplyUser(message)?.displayName}'s avatar`" 
+                  class="thread-avatar"
+                />
+                <div v-else class="thread-avatar default-avatar">
+                  {{ getInitials(getLastReplyUser(message)?.displayName) }}
+                </div>
+                <div class="thread-count">
+                  {{ getThreadCount(message) }} {{ getThreadCount(message) === 1 ? 'reply' : 'replies' }}
+                </div>
+              </div>
+              <span class="thread-timestamp">{{ formatTimestamp(getLastReply(message)?.createdAt) }}</span>
+            </div>
+          </div>
         </div>
         
         <!-- Message Hover Menu -->
@@ -288,6 +306,7 @@ const handleRemoveReaction = async (emoji, messageId) => {
 const handleReply = () => {
   if (hoveredMessage.value) {
     store.dispatch('messages/setActiveThread', hoveredMessage.value);
+    showHoverMenu.value = false;
   }
 };
 
@@ -298,7 +317,12 @@ const hasUserReacted = (reaction) => {
 
 // Add thread-related computed and methods
 const getThreadCount = (message) => {
-  return store.getters['messages/getThreadReplies']?.(message._id) || 0;
+  return store.getters['messages/getThreadReplyCount'](message._id);
+};
+
+// Add a computed property for thread replies
+const getThreadReplies = (messageId) => {
+  return store.getters['messages/getThreadReplies'](messageId);
 };
 
 // Add scrollToBottom function
@@ -384,6 +408,17 @@ onMounted(() => {
 onUnmounted(() => {
   messageListRef.value?.removeEventListener('scroll', handleScroll);
 });
+
+// Add these helper methods
+const getLastReply = (message) => {
+  const replies = getThreadReplies(message._id);
+  return replies[replies.length - 1];
+};
+
+const getLastReplyUser = (message) => {
+  const lastReply = getLastReply(message);
+  return lastReply?.user;
+};
 </script>
 
 <style scoped>
@@ -543,5 +578,73 @@ onUnmounted(() => {
 
 .message-type-thread {
   /* Add any specific styling for thread messages */
+}
+
+.thread-info {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: rgba(79, 84, 92, 0.16);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.thread-info:hover {
+  background-color: rgba(79, 84, 92, 0.24);
+}
+
+.thread-preview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.thread-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.thread-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thread-count {
+  color: #00A8FC;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.thread-timestamp {
+  color: #B5BAC1;
+  font-size: 0.75rem;
+}
+
+.thread-preview {
+  padding-left: 24px;
+}
+
+.thread-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.thread-preview .default-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 8px;
+}
+
+.thread-preview-text {
+  color: #B5BAC1;
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

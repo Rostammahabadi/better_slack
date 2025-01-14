@@ -145,8 +145,9 @@ onUnmounted(() => {
 // Watch for channel changes
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
   if (newChannel) {
-    // Clear current conversation when switching to a channel
+    // Clear current conversation and thread when switching to a channel
     store.commit('conversations/setCurrentConversation', null);
+    store.dispatch('messages/setActiveThread', null);
     joinChannel(newChannel, currentUser.value);
     
     if (newChannel !== oldChannel) {
@@ -163,8 +164,9 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
 // Watch for conversation changes
 watch(() => route.params.conversationId, async (newConversationId, oldConversationId) => {
   if (newConversationId) {
-    // Clear current channel when switching to a conversation
+    // Clear current channel and thread when switching to a conversation
     store.dispatch('channels/setCurrentChannel', { channel: null });
+    store.dispatch('messages/setActiveThread', null);
     
     try {
       await store.dispatch('messages/fetchConversationMessages', {

@@ -12,10 +12,15 @@ const state = {
 
 const getters = {
   getChannelMessages: (state) => (channelId) => {
-    return state.channelMessages[channelId]?.messages || [];
+    const messages = state.channelMessages[channelId]?.messages || [];
+    // Filter out messages that are thread replies
+    return messages.filter(message => !message.threadId);
   },
+  
   getConversationMessages: (state) => (conversationId) => {
-    return state.conversationMessages[conversationId]?.messages || [];
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    // Filter out messages that are thread replies
+    return messages.filter(message => !message.threadId);
   },
   hasMoreChannelMessages: (state) => (channelId) => {
     return state.channelMessages[channelId]?.hasMore ?? false;
@@ -36,17 +41,25 @@ const getters = {
     // Search for thread replies in both channel and conversation messages
     for (const channelData of Object.values(state.channelMessages)) {
       const message = channelData.messages?.find(m => m._id === messageId);
-      if (message?.thread?.replies) {
-        return message.thread.replies.length;
+      if (message) {
+        // Find all replies for this thread
+        const replies = channelData.messages.filter(m => m.threadId === messageId);
+        return replies;
       }
     }
     for (const conversationData of Object.values(state.conversationMessages)) {
       const message = conversationData.messages?.find(m => m._id === messageId);
-      if (message?.thread?.replies) {
-        return message.thread.replies.length;
+      if (message) {
+        // Find all replies for this thread
+        const replies = conversationData.messages.filter(m => m.threadId === messageId);
+        return replies;
       }
     }
-    return 0;
+    return [];
+  },
+  getThreadReplyCount: (state) => (messageId) => {
+    const replies = getters.getThreadReplies(state)(messageId);
+    return replies.length;
   }
 };
 
@@ -157,6 +170,64 @@ const actions = {
 
   setActiveThread({ commit }, thread) {
     commit('setActiveThread', thread);
+  },
+
+  async sendThreadReply({ commit }, { message, token }) {
+    try {
+      let response;
+      const messageData = {
+        content: message.content,
+        user: message.user,
+        type: 'thread',
+        status: 'sent',
+        threadId: message.threadId
+      };
+
+      if (message.channelId) {
+        // Handle channel thread replies
+        response = await api.post(
+          `/channels/${message.channelId}/messages/${message.threadId}/replies`, 
+          messageData
+        );
+        
+        // Update the thread replies in the parent message
+        const parentMessage = state.channelMessages[message.channelId]?.messages.find(
+          m => m._id === message.threadId
+        );
+        
+        if (parentMessage) {
+          commit('addThreadReply', {
+            channelId: message.channelId,
+            threadId: message.threadId,
+            reply: response.data
+          });
+        }
+      } else if (message.conversationId) {
+        // Handle conversation thread replies
+        response = await api.post(
+          `/conversations/${message.conversationId}/messages/${message.threadId}/replies`, 
+          messageData
+        );
+        
+        // Update the thread replies in the parent message
+        const parentMessage = state.conversationMessages[message.conversationId]?.messages.find(
+          m => m._id === message.threadId
+        );
+        
+        if (parentMessage) {
+          commit('addConversationThreadReply', {
+            conversationId: message.conversationId,
+            threadId: message.threadId,
+            reply: response.data
+          });
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
   }
 };
 
@@ -227,6 +298,17 @@ const mutations = {
 
   addChannelMessage(state, { channelId, message }) {
     const currentMessages = state.channelMessages[channelId]?.messages || [];
+    
+    // If it's a thread reply, update the parent message's thread
+    if (message.threadId) {
+      const parentIndex = currentMessages.findIndex(m => m._id === message.threadId);
+      if (parentIndex !== -1) {
+        if (!currentMessages[parentIndex].thread) {
+          currentMessages[parentIndex].thread = { replies: [] };
+        }
+      }
+    }
+    
     state.channelMessages = {
       ...state.channelMessages,
       [channelId]: {
@@ -238,6 +320,17 @@ const mutations = {
 
   addConversationMessage(state, { conversationId, message }) {
     const currentMessages = state.conversationMessages[conversationId]?.messages || [];
+    
+    // If it's a thread reply, update the parent message's thread
+    if (message.threadId) {
+      const parentIndex = currentMessages.findIndex(m => m._id === message.threadId);
+      if (parentIndex !== -1) {
+        if (!currentMessages[parentIndex].thread) {
+          currentMessages[parentIndex].thread = { replies: [] };
+        }
+      }
+    }
+    
     state.conversationMessages = {
       ...state.conversationMessages,
       [conversationId]: {
@@ -279,6 +372,32 @@ const mutations = {
 
   setError(state, error) {
     state.error = error;
+  },
+
+  addThreadReply(state, { channelId, threadId, reply }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === threadId);
+    
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (!message.thread) {
+        message.thread = { replies: [] };
+      }
+      message.thread.replies = [...(message.thread.replies || []), reply];
+    }
+  },
+
+  addConversationThreadReply(state, { conversationId, threadId, reply }) {
+    const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === threadId);
+    
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (!message.thread) {
+        message.thread = { replies: [] };
+      }
+      message.thread.replies = [...(message.thread.replies || []), reply];
+    }
   }
 };
 

@@ -79,8 +79,12 @@ import { useSocket } from '../../services/socketService';
 const store = useStore();
 const { sendWorkspaceJoined } = useSocket(store);
 
-const showThreadSidebar = computed(() => store.getters['messages/activeThread'] !== null);
-const threadParentMessage = computed(() => store.getters['messages/activeThread']);
+const showThreadSidebar = computed(() => {
+  const activeThread = store.getters['messages/getActiveThread'];
+  return !!activeThread;
+});
+
+const threadParentMessage = computed(() => store.getters['messages/getActiveThread']);
 const threadReplies = computed(() => store.getters['messages/getThreadReplies'](threadParentMessage.value?._id));
 
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
@@ -99,13 +103,23 @@ const sendThreadReply = async (messageData) => {
   if (!messageData.content.trim() || !threadParentMessage.value) return;
   
   try {
+    const message = {
+      content: messageData.content,
+      user: store.state.auth.user.user._id,
+      threadId: threadParentMessage.value._id,
+      type: 'thread',
+      status: 'sent'
+    };
+
+    // Add either channelId or conversationId based on the parent message type
+    if (threadParentMessage.value.type === 'channel') {
+      message.channelId = threadParentMessage.value.channelId;
+    } else if (threadParentMessage.value.type === 'conversation') {
+      message.conversationId = threadParentMessage.value.conversationId;
+    }
+
     await store.dispatch('messages/sendThreadReply', {
-      message: {
-        content: messageData.content,
-        channelId: threadParentMessage.value.channelId,
-        threadId: threadParentMessage.value._id,
-        user: store.state.auth.user.user._id
-      },
+      message,
       token: store.state.auth.token
     });
   } catch (error) {
