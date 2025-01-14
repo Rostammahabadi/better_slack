@@ -49,13 +49,31 @@
             v-for="conversation in filteredParticipants" 
             :key="conversation._id"
             class="section-item"
+            @click="selectConversation(conversation)"
           >
-            <img 
-              :src="conversation.displayParticipants[0]?.avatarUrl || ''" 
-              :alt="conversation.displayParticipants[0]?.displayName || 'User'"
-              class="user-avatar"
-            />
-            <span>{{ conversation.displayParticipants.map(p => p.displayName).join(', ') || 'Unknown User' }}</span>
+            <div class="conversation-avatar">
+              <img 
+                v-if="conversation.displayParticipants[0]?.avatarUrl"
+                :src="conversation.displayParticipants[0].avatarUrl" 
+                :alt="conversation.displayParticipants[0].displayName"
+                class="user-avatar"
+              />
+              <div v-else class="user-avatar-fallback">
+                {{ getInitials(conversation.displayParticipants[0]?.displayName) }}
+              </div>
+            </div>
+            
+            <div class="conversation-info">
+              <span v-if="conversation.displayParticipants.length === 1">
+                {{ conversation.displayParticipants[0].displayName }}
+              </span>
+              <span v-else>
+                {{ conversation.displayParticipants[0].displayName }}
+                <span class="additional-participants">
+                  +{{ conversation.displayParticipants.length - 1 }} others
+                </span>
+              </span>
+            </div>
           </div>
 
           <button class="invite-button" @click="showInviteModal = true">
@@ -107,7 +125,7 @@ const contextMenu = ref({
   channel: null
 });
 
-const conversations = computed(() => store.getters['conversations/conversations']);
+const conversations = computed(() => store.getters['conversations/getConversations']);
 
 // Add loading state
 const isLoading = ref(true);
@@ -192,6 +210,23 @@ const onChannelCreated = (channel) => {
   // Select the newly created channel
   selectChannel(channel);
 };
+
+const getInitials = (name) => {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+const selectConversation = (conversation) => {
+  router.push({
+    name: 'conversation',
+    params: { id: conversation._id }
+  })
+}
 </script>
 
 <style scoped>
@@ -281,9 +316,11 @@ const onChannelCreated = (channel) => {
 .section-item {
   display: flex;
   align-items: center;
-  padding: 4px 16px;
-  cursor: pointer;
+  padding: 6px 8px;
   color: #ABABAD;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 8px;
 }
 
 .section-item:hover {
@@ -355,10 +392,35 @@ const onChannelCreated = (channel) => {
 .user-avatar {
   width: 24px;
   height: 24px;
-  border-radius: 4px;
-  margin-right: 8px;
+  border-radius: 50%;
   object-fit: cover;
+}
+
+.user-avatar-fallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background-color: #4B4B4B;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.additional-participants {
+  color: #9CA3AF;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .role-label {
@@ -374,5 +436,10 @@ const onChannelCreated = (channel) => {
   padding: 16px;
   text-align: center;
   color: #ABABAD;
+}
+
+.conversation-avatar {
+  flex-shrink: 0;
+  margin-right: 12px;
 }
 </style> 
