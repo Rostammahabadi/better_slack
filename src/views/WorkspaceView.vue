@@ -30,21 +30,22 @@
       <div class="channel-header">
         <div class="channel-info">
           <h2 class="channel-name">
-            <span class="prefix">{{ currentChannel ? '#' : '@' }}</span>
-            {{ currentChannel?.name || currentDirectMessage?.user.displayName || currentWorkspace?.name }}
+            <span class="prefix">{{ headerPrefix }}</span>
+            {{ headerName }}
           </h2>
         </div>
         <div class="channel-description">
-          {{ currentChannel?.description || 
-             (currentDirectMessage ? 'Direct message conversation' : 
-             'Share announcements and updates about company news, upcoming events, or teammates who deserve some kudos. ⭐') }}
+          {{ headerDescription }}
         </div>
       </div>
       
       <MessageList/>
 
       <div class="message-input">
-        <TextEditor @send-message="sendMessage" :placeholder="currentChannel ? `Message #${currentChannel.name}` : 'Message'" />
+        <TextEditor 
+          @send-message="sendMessage" 
+          :placeholder="getPlaceholder"
+        />
       </div>
     </div>
   </WorkspaceLayout>
@@ -76,7 +77,12 @@ const router = useRouter();
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const currentChannel = computed(() => store.getters['channels/currentChannel']);
 
-const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
+const currentDirectMessage = computed(() => {
+  if (route.params.id) {
+    return currentConversation.value;
+  }
+  return null;
+});
 
 const error = computed(() => 
   store.getters['workspaces/error'] || 
@@ -136,21 +142,46 @@ onUnmounted(() => {
   }
 });
 
-// Watch for channel changes to update URL and load messages
+// Watch for channel changes
 watch(() => route.params.channelId, async (newChannel, oldChannel) => {
-  if (route.params.channelId) {
+  if (newChannel) {
+    // Clear current conversation when switching to a channel
+    store.commit('conversations/setCurrentConversation', null);
     joinChannel(newChannel, currentUser.value);
-  }
-  if (newChannel && newChannel !== oldChannel) {
-    const channel = store.getters['channels/getChannelById'](newChannel);   
-    // Fetch messages for the new channel
-    await store.dispatch('messages/fetchMessages', {
-      channelId: newChannel,
-      token: token.value
-    });
+    
+    if (newChannel !== oldChannel) {
+      const channel = store.getters['channels/getChannelById'](newChannel);   
+      await store.dispatch('messages/fetchMessages', {
+        channelId: newChannel,
+        token: token.value
+      });
+    }
   }
 });
 
+// Watch for conversation changes
+watch(() => route.params.conversationId, async (newConversationId, oldConversationId) => {
+  if (newConversationId) {
+    // Clear current channel when switching to a conversation
+    store.dispatch('channels/setCurrentChannel', { channel: null });
+    
+    try {
+      await store.dispatch('conversations/fetchConversationMessages', {
+        conversationId: newConversationId,
+        token: token.value
+      });
+      
+      await store.dispatch('conversations/setCurrentConversation', {
+        conversationId: newConversationId,
+        token: token.value
+      });
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  }
+});
+
+// Watch for workspace changes
 watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => {
   if (newWorkspaceId && newWorkspaceId !== oldWorkspaceId) {
     try {
@@ -180,6 +211,9 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
   }
 });
 
+// Update computed properties
+const currentConversation = computed(() => store.getters['conversations/getCurrentConversation']);
+
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
@@ -204,11 +238,12 @@ const sendMessage = async (messageData) => {
         token: token.value
       });
       sendRealtimeMessage(messageResponse);
-    } else if (currentDirectMessage.value) {
-      // Handle direct messages similarly
+    } else if (route.params.conversationId) {
+      // Handle conversation messages
       const message = {
         content: messageData.content,
-        channelId: currentDirectMessage.value._id,
+        conversationId: route.params.conversationId,
+        type: 'conversation',
         user: currentUser.value._id,
         threadId: messageData.threadId || null,
         attachments: messageData.attachments || [],
@@ -220,10 +255,11 @@ const sendMessage = async (messageData) => {
         updatedAt: new Date().toISOString()
       };
 
-      await store.dispatch('messages/sendDirectMessage', {
+      const messageResponse = await store.dispatch('conversations/sendMessage', {
         message,
         token: token.value
       });
+      sendRealtimeMessage(messageResponse);
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -256,6 +292,58 @@ const handleDrop = (e) => {
   const files = Array.from(e.dataTransfer.files);
   // TODO: Implement file upload logic
 };
+
+// Add computed property for placeholder
+const getPlaceholder = computed(() => {
+  if (currentChannel.value) {
+    return `Message #${currentChannel.value.name}`;
+  } else if (currentConversation.value) {
+    if (currentConversation.value.participants.length === 2) {
+      const otherUser = currentConversation.value.participants.find(p => p._id !== currentUser.value._id);
+      return `Message @${otherUser?.displayName}`;
+    } else {
+      return 'Message group';
+    }
+  }
+  return 'Message';
+});
+
+// Add new computed properties for header display
+const headerPrefix = computed(() => {
+  if (currentChannel.value) return '#';
+  if (currentConversation.value) return '@';
+  return '';
+});
+
+const headerName = computed(() => {
+  if (currentChannel.value) {
+    return currentChannel.value.name;
+  }
+  
+  if (currentConversation.value) {
+    if (currentConversation.value.participants.length === 2) {
+      return currentConversation.value.participants.find(
+        p => p._id !== currentUser.value._id
+      )?.displayName;
+    }
+    return currentConversation.value.participants
+      .filter(p => p._id !== currentUser.value._id)
+      .map(p => p.displayName)
+      .join(', ');
+  }
+  
+  return currentWorkspace.value?.name;
+});
+
+const headerDescription = computed(() => {
+  if (currentChannel.value) {
+    return currentChannel.value.description;
+  }
+  if (currentConversation.value) {
+    return 'Direct message conversation';
+  }
+  return 'Share announcements and updates about company news, upcoming events, or teammates who deserve some kudos. ⭐';
+});
 </script>
 
 <style scoped>

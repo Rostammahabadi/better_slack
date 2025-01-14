@@ -123,7 +123,7 @@ export default {
     const currentUserId = computed(() => store.getters['auth/getUserId'])
     const typingUsers = computed(() => store.getters['conversations/getParticipantTyping'])
 
-    const conversationId = computed(() => route.params.id)
+    const conversationId = computed(() => route.params.conversationId)
 
     const conversationTitle = computed(() => {
       if (!conversation.value) return ''

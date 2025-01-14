@@ -69,17 +69,14 @@ const actions = {
     }
   },
 
-  async sendMessage({ commit }, { conversationId, content, attachments = [] }) {
+  async sendMessage({ commit }, { message, token }) {
     try {
-      const response = await api.post(`/conversations/${conversationId}/messages`, {
-        content,
-        attachments,
-      })
-      commit('addMessage', response.data)
-      return response.data
+      const response = await api.post(`/conversations/${message.conversationId}/messages`, message);
+      commit('addMessage', response.data);
+      return response.data;
     } catch (error) {
-      commit('setError', error.message)
-      throw error
+      commit('setError', error.message);
+      throw error;
     }
   },
 
@@ -105,33 +102,116 @@ const actions = {
   handleTypingStatus({ commit }, { conversationId, userId, isTyping }) {
     commit('setParticipantTyping', { conversationId, userId, isTyping })
   },
+
+  async fetchConversationMessages({ commit }, { conversationId, token }) {
+    try {
+      commit('setLoading', true);
+      const response = await api.get(`/conversations/${conversationId}/messages`);
+      commit('setMessages', response.data.messages);
+      commit('setNextCursor', response.data.nextCursor);
+    } catch (error) {
+      commit('setError', error.message);
+    } finally {
+      commit('setLoading', false);
+    }
+  },
+
+  async setCurrentConversation({ commit, state }, { conversationId }) {
+    const conversation = state.conversations.find(c => c._id === conversationId);
+    if (conversation) {
+      commit('setCurrentConversation', conversation);
+    }
+  },
+
+  async updateMessage({ commit }, { messageId, content, conversationId, token }) {
+    try {
+      const response = await api.put(`/conversations/${conversationId}/messages/${messageId}`, {
+        content
+      });
+      commit('updateMessage', response.data);
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async addReaction({ commit }, { messageId, reaction, conversationId, token }) {
+    try {
+      const response = await api.post(`/conversations/${conversationId}/messages/${messageId}/reactions`, {
+        emoji: reaction
+      });
+      commit('addReaction', { messageId, reaction: response.data });
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
+  async removeReaction({ commit }, { messageId, reactionId, conversationId, token }) {
+    try {
+      await api.delete(`/conversations/${conversationId}/messages/${messageId}/reactions/${reactionId}`);
+      commit('removeReaction', { messageId, reactionId });
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  }
 }
 
 const mutations = {
   setConversations(state, conversations) {
-    state.conversations = conversations
+    state.conversations = conversations;
   },
 
   setCurrentConversation(state, conversation) {
-    state.currentConversation = conversation
+    state.currentConversation = conversation;
   },
 
   setMessages(state, messages) {
-    state.messages = messages
+    state.messages = messages;
   },
 
   appendMessages(state, messages) {
-    state.messages = [...messages, ...state.messages]
+    state.messages = [...messages, ...state.messages];
   },
 
   addMessage(state, message) {
-    state.messages.push(message)
+    state.messages.push(message);
     // Update last message in conversations list
     const conversationIndex = state.conversations.findIndex(
-      conv => conv.id === message.conversationId
-    )
+      conv => conv._id === message.conversationId
+    );
     if (conversationIndex !== -1) {
-      state.conversations[conversationIndex].lastMessage = message
+      state.conversations[conversationIndex].lastMessage = message;
+    }
+  },
+
+  updateMessage(state, updatedMessage) {
+    const index = state.messages.findIndex(msg => msg._id === updatedMessage._id);
+    if (index !== -1) {
+      state.messages.splice(index, 1, updatedMessage);
+    }
+  },
+
+  addReaction(state, { messageId, reaction }) {
+    const message = state.messages.find(msg => msg._id === messageId);
+    if (message) {
+      if (!message.reactions) {
+        message.reactions = [];
+      }
+      message.reactions.push(reaction);
+    }
+  },
+
+  removeReaction(state, { messageId, reactionId }) {
+    const message = state.messages.find(msg => msg._id === messageId);
+    if (message && message.reactions) {
+      const index = message.reactions.findIndex(r => r._id === reactionId);
+      if (index !== -1) {
+        message.reactions.splice(index, 1);
+      }
     }
   },
 
@@ -140,19 +220,19 @@ const mutations = {
   },
 
   setLoading(state, isLoading) {
-    state.isLoading = isLoading
+    state.isLoading = isLoading;
   },
 
   setError(state, error) {
-    state.error = error
+    state.error = error;
   },
 
   setNextCursor(state, cursor) {
-    state.nextCursor = cursor
+    state.nextCursor = cursor;
   },
 
   setHasMoreMessages(state, hasMore) {
-    state.hasMoreMessages = hasMore
+    state.hasMoreMessages = hasMore;
   },
 
   setParticipantTyping(state, { conversationId, userId, isTyping }) {
@@ -162,7 +242,7 @@ const mutations = {
         ...(state.participantTyping[conversationId] || {}),
         [userId]: isTyping,
       },
-    }
+    };
   },
 
   clearError(state) {

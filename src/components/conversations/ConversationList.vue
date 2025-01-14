@@ -79,7 +79,7 @@ export default {
     const conversations = computed(() => store.getters['conversations/getConversations'])
     const isLoading = computed(() => store.getters['conversations/getIsLoading'])
     const error = computed(() => store.getters['conversations/getError'])
-    const currentConversationId = computed(() => route.params.id)
+    const currentConversationId = computed(() => route.params.conversationId)
 
     const loadConversations = async () => {
       await store.dispatch('conversations/fetchConversations')

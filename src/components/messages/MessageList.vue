@@ -2,20 +2,24 @@
   <div class="message-list" ref="messageListRef">
     <div 
       v-for="message in messages" 
-      :key="message.id" 
+      :key="message._id" 
       class="message"
       @mouseover="showMenuForMessage(message)"
       @mouseleave="startHideMenu"
       :class="{ 'message-hovered': hoveredMessage?._id === message._id }"
     >
       <img
+        v-if="message.user?.avatarUrl"
         :src="message.user.avatarUrl" 
-        :alt="`${message.user.displayName}'s avatar`" 
+        :alt="`${message.user?.displayName}'s avatar`" 
         class="avatar"
       />
+      <div v-else class="avatar default-avatar">
+        {{ getInitials(message.user?.displayName) }}
+      </div>
       <div class="message-content">
         <div class="message-header">
-          <span class="username">{{ message?.user?.displayName }}</span>
+          <span class="username">{{ message.user?.displayName }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
         </div>
         <div v-if="editingMessageId === message._id" class="message-edit">
@@ -28,10 +32,10 @@
         <div v-else class="message-text">
           {{ message.content }}
         </div>
-        <div v-if="message.reactions?.length" class="message-reactions">
+        <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
           <button 
             v-for="reaction in message.reactions" 
-            :key="reaction.id" 
+            :key="reaction._id" 
             class="reaction"
             :class="{ 'reaction-active': hasUserReacted(reaction) }"
             @click="handleRemoveReaction(reaction.emoji, message._id)"
@@ -57,7 +61,7 @@
         />
       </div>
     </div>
-    <div v-if="!messages.length" class="no-messages">
+    <div v-if="!messages?.length" class="no-messages">
       No messages yet. Start the conversation! 💬
     </div>
   </div>
@@ -68,6 +72,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import MessageHoverMenu from './MessageHoverMenu.vue';
 import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 const emit = defineEmits([ 'edit-message']);
 const messageListRef = ref(null);
 const hoveredMessage = ref(null);
@@ -76,6 +81,7 @@ const editingMessageId = ref(null);
 let hideMenuTimeout = null;
 import { useSocket } from '../../services/socketService';
 const store = useStore();
+const router = useRouter();
 const {
   sendReaction,
   sendReactionRemoved,
@@ -86,10 +92,10 @@ const currentChannel = computed(() => store.getters['channels/currentChannel']);
 
 const currentDirectMessage = computed(() => store.getters['messages/currentDirectMessage']);
 const messages = computed(() => {
-  if (currentChannel.value) {
-    return store.getters['messages/getMessagesByChannel'](currentChannel.value.id);
-  } else if (currentDirectMessage.value) {
-    return store.getters['messages/getDirectMessages'](currentDirectMessage.value.id);
+  if (router.currentRoute.value.params.channelId) {
+    return store.getters['messages/messages'];
+  } else if (router.currentRoute.value.params.conversationId) {
+    return store.getters['conversations/getMessages'] || [];
   }
   return [];
 });
@@ -135,13 +141,23 @@ const handleCancelEdit = () => {
 const handleEditComplete = async (messageData) => {
   if (editingMessageId.value) {
     try {
-      const editedMessage = await store.dispatch('messages/updateMessage', {
-        _id: editingMessageId.value,
-        content: messageData.content,
-        channelId: store.state.channels.currentChannel._id,
-        token: store.state.auth.token
-      });
-      sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.channelId);
+      if (router.currentRoute.value.params.channelId) {
+        const editedMessage = await store.dispatch('messages/updateMessage', {
+          _id: editingMessageId.value,
+          content: messageData.content,
+          channelId: store.state.channels.currentChannel._id,
+          token: store.state.auth.token
+        });
+        sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.channelId);
+      } else if (router.currentRoute.value.params.id) {
+        const editedMessage = await store.dispatch('conversations/updateMessage', {
+          _id: editingMessageId.value,
+          content: messageData.content,
+          conversationId: router.currentRoute.value.params.id,
+          token: store.state.auth.token
+        });
+        sendEditMessage(editedMessage._id, editedMessage.content, editedMessage.conversationId);
+      }
       editingMessageId.value = null;
       hoveredMessage.value = null;
       showHoverMenu.value = false;
@@ -155,9 +171,26 @@ const handleAddReaction = async (emoji, messageId) => {
   if (hoveredMessage.value) {
     const message = hoveredMessage.value;
     const token = store.state.auth.token;
-    const currentChannel = store.state.channels.currentChannel._id;
-    const addedReaction = await store.dispatch('messages/addReaction', { messageId: message._id, reaction: emoji, token, currentChannel });
-    sendReaction(message._id, addedReaction, currentChannel);
+    
+    if (router.currentRoute.value.params.channelId) {
+      const currentChannel = store.state.channels.currentChannel._id;
+      const addedReaction = await store.dispatch('messages/addReaction', { 
+        messageId: message._id, 
+        reaction: emoji, 
+        token, 
+        currentChannel 
+      });
+      sendReaction(message._id, addedReaction, currentChannel);
+    } else if (router.currentRoute.value.params.id) {
+      const conversationId = router.currentRoute.value.params.id;
+      const addedReaction = await store.dispatch('conversations/addReaction', { 
+        messageId: message._id, 
+        reaction: emoji, 
+        token, 
+        conversationId 
+      });
+      sendReaction(message._id, addedReaction, conversationId);
+    }
   }
 };
 
@@ -165,16 +198,32 @@ const handleRemoveReaction = async (emoji, messageId) => {
   const message = hoveredMessage.value;
   const currentUserId = store.state.auth.user.user._id;
   const token = store.state.auth.token;
-  const currentChannel = store.state.channels.currentChannel._id;
-  const userReactionIndex = message.reactions.findIndex(
+  
+  if (hoveredMessage.value) {
+    const reaction = message.reactions.find(
       r => r.user === currentUserId && r.emoji === emoji
     );
-  const reaction = message.reactions[userReactionIndex];
-  if (hoveredMessage.value) {
-    await store.dispatch('messages/removeReaction', { messageId: message._id, reactionId: reaction._id, token, currentChannel });
-    sendReactionRemoved(message._id, reaction, currentChannel);
+    
+    if (router.currentRoute.value.params.channelId) {
+      const currentChannel = store.state.channels.currentChannel._id;
+      await store.dispatch('messages/removeReaction', { 
+        messageId: message._id, 
+        reactionId: reaction._id, 
+        token, 
+        currentChannel 
+      });
+      sendReactionRemoved(message._id, reaction, currentChannel);
+    } else if (router.currentRoute.value.params.id) {
+      const conversationId = router.currentRoute.value.params.id;
+      await store.dispatch('conversations/removeReaction', { 
+        messageId: message._id, 
+        reactionId: reaction._id, 
+        token, 
+        conversationId 
+      });
+      sendReactionRemoved(message._id, reaction, conversationId);
+    }
   }
-
 };
 
 const handleReply = () => {
@@ -214,6 +263,29 @@ watch(() => currentChannel.value, () => {
     scrollToBottom();
   });
 });
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// Add styles for default avatar
+const styles = `
+.default-avatar {
+  background-color: #4B4B4B;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+`;
 
 onMounted(() => {
   scrollToBottom();

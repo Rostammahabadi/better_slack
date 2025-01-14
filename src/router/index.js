@@ -50,6 +50,12 @@ const router = createRouter({
       name: 'channel',
       component: WorkspaceView,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/workspaces/:workspaceId/conversations/:conversationId',
+      name: 'conversation',
+      component: WorkspaceView,
+      meta: { requiresAuth: true }
     }
   ]
 })

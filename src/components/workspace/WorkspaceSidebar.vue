@@ -224,9 +224,12 @@ const getInitials = (name) => {
 const selectConversation = (conversation) => {
   router.push({
     name: 'conversation',
-    params: { id: conversation._id }
-  })
-}
+    params: { 
+      workspaceId: storeData.value.workspace._id,
+      conversationId: conversation._id 
+    }
+  });
+};
 </script>
 
 <style scoped>

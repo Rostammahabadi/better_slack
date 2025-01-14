@@ -165,7 +165,7 @@ export default {
         emit('close')
         router.push({
           name: 'conversation',
-          params: { id: conversation.id }
+          params: { conversationId: conversation.id }
         })
       } catch (error) {
         console.error('Failed to create conversation:', error)
