@@ -13,14 +13,18 @@ const state = {
 const getters = {
   getChannelMessages: (state) => (channelId) => {
     const messages = state.channelMessages[channelId]?.messages || [];
-    // Filter out messages that are thread replies
-    return messages.filter(message => !message.threadId);
+    // Filter out messages that are thread replies and sort by createdAt
+    return messages
+      .filter(message => !message.threadId)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   },
   
   getConversationMessages: (state) => (conversationId) => {
     const messages = state.conversationMessages[conversationId]?.messages || [];
-    // Filter out messages that are thread replies
-    return messages.filter(message => !message.threadId);
+    // Filter out messages that are thread replies and sort by createdAt
+    return messages
+      .filter(message => !message.threadId)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   },
   hasMoreChannelMessages: (state) => (channelId) => {
     return state.channelMessages[channelId]?.hasMore ?? false;
@@ -158,7 +162,7 @@ const actions = {
       };
       
       const response = await api.post(`/channels/${channelId}/messages`, message);
-      commit('addChannelMessage', { channelId, message: response.data });
+      // Don't commit the message here, it will be added when received through the socket
       return response.data;
     } catch (error) {
       commit('setError', error.message);
@@ -371,11 +375,24 @@ const mutations = {
       }
     }
     
+    // Insert message in correct chronological position
+    const insertIndex = currentMessages.findIndex(m => 
+      new Date(m.createdAt) > new Date(message.createdAt)
+    );
+    
+    if (insertIndex === -1) {
+      // If no message is newer, append to end
+      currentMessages.push(message);
+    } else {
+      // Insert at correct position
+      currentMessages.splice(insertIndex, 0, message);
+    }
+    
     state.channelMessages = {
       ...state.channelMessages,
       [channelId]: {
         ...state.channelMessages[channelId],
-        messages: [...currentMessages, message]
+        messages: currentMessages
       }
     };
   },
@@ -396,7 +413,7 @@ const mutations = {
         currentMessages[parentIndex].thread.replies = [
           ...(currentMessages[parentIndex].thread.replies || []),
           message
-        ];
+        ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         
         // Update the messages array with the modified parent message
         state.conversationMessages = {
@@ -410,12 +427,24 @@ const mutations = {
       }
     }
     
-    // If not a thread reply or parent not found, add as a regular message
+    // Insert message in correct chronological position
+    const insertIndex = currentMessages.findIndex(m => 
+      new Date(m.createdAt) > new Date(message.createdAt)
+    );
+    
+    if (insertIndex === -1) {
+      // If no message is newer, append to end
+      currentMessages.push(message);
+    } else {
+      // Insert at correct position
+      currentMessages.splice(insertIndex, 0, message);
+    }
+    
     state.conversationMessages = {
       ...state.conversationMessages,
       [conversationId]: {
         ...state.conversationMessages[conversationId],
-        messages: [...currentMessages, message]
+        messages: currentMessages
       }
     };
   },
