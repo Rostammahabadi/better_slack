@@ -298,10 +298,10 @@ const sendMessage = async (messageData) => {
         status: 'sent',
         createdAt: new Date().toISOString()
       };
-      
+
       // Add message to store and send via socket
       await store.dispatch('chatbot/addMessage', fullMessage);
-      sendBotMessage(messageData.content, currentUser.value._id);
+      sendBotMessage(messageData.content, currentUser.value._id, currentWorkspace.value._id);
     } else if (route.params.conversationId) {
       const messageResponse = await store.dispatch('messages/sendConversationMessage', {
         conversationId: route.params.conversationId,

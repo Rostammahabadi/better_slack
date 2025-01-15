@@ -60,6 +60,21 @@ const actions = {
       commit('SET_LOADING', false);
     }
   },
+
+  async addBotResponse({ commit }, message) {
+    commit('ADD_MESSAGE', {
+      _id: Date.now() + Math.random(),
+      ...message,
+      type: 'bot',
+      sender: 'bot',
+      avatarUrl: '/images/bot.png',
+      user: {
+        displayName: 'Chatbot',
+        avatarUrl: '/images/bot.png'
+      },
+      timestamp: new Date().toISOString()
+    });
+  },
   
   async fetchMessages({ commit, rootState }) {
     try {
@@ -97,27 +112,6 @@ const actions = {
     commit('SET_ACTIVE', false);
     commit('CLEAR_MESSAGES');
   },
-
-  sendMessage({ commit, rootState }, content) {
-    // Add user message to chat
-    const userMessage = {
-      _id: Date.now() + Math.random(),
-      content,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-      type: 'bot'
-    };
-    commit('ADD_MESSAGE', userMessage);
-
-    // Emit message through socket
-    if (rootState.socket.socket) {
-      commit('SET_LOADING', true);
-      rootState.socket.socket.emit('bot:message', {
-        message: content,
-        userId: rootState.auth.user._id
-      });
-    }
-  }
 }
 const getters = {
   isActive: state => state.isActive,

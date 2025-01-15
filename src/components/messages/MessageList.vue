@@ -27,7 +27,7 @@
       </div>
       <div class="message-content">
         <div class="message-header">
-          <span class="username">{{ message.user?.displayName }}</span>
+          <span class="username">{{ message.type === 'bot' ? 'Chatbot' : message.user?.displayName }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
           <!-- <MessageStatus :status="message.status" /> -->
         </div>
@@ -40,8 +40,7 @@
             @cancel="handleCancelEdit"
           />
         </div>
-        <div v-else class="message-text">
-          {{ message.content }}
+        <div v-else class="message-text" v-html="formatMessageContent(message.content)">
         </div>
         <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
           <button 
@@ -80,7 +79,7 @@
         
         <!-- Message Hover Menu -->
         <MessageHoverMenu
-          v-if="showHoverMenu && hoveredMessage?._id === message._id"
+          v-if="showHoverMenu && hoveredMessage?._id === message._id && message.type !== 'bot'"
           @add-reaction="(emoji) => handleAddReaction(emoji, message._id)"
           @reply="handleReply"
           @menu-hover="cancelHideMenu"
@@ -102,6 +101,10 @@ import MessageHoverMenu from './MessageHoverMenu.vue';
 import TextEditor from '../TextEditor.vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 const emit = defineEmits(['edit-message']);
 const messageListRef = ref(null);
@@ -126,6 +129,20 @@ const {
   sendChannelThreadReply,
   sendConversationThreadReply
 } = useSocket(store);
+
+// Initialize marked with options
+marked.setOptions({
+  gfm: true, // GitHub Flavored Markdown
+  breaks: true, // Convert \n to <br>
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value;
+      } catch (err) {}
+    }
+    return code;
+  }
+});
 
 // Computed properties for messages and pagination
 const messages = computed(() => {
@@ -345,7 +362,7 @@ const handleSendMessage = async (messageData) => {
       }
     } else if (router.currentRoute.value.name === 'bot-conversation') {
       // Handle bot message
-      await store.dispatch('chatbot/sendMessage', messageData.content);
+      await store.dispatch('chatbot/sendMessage', messageData.content, router.currentRoute.value.params.workspaceId);
     }
   } catch (error) {
     console.error('Failed to send message:', error);
@@ -526,6 +543,14 @@ const getLastReplyUser = (message) => {
   const lastReply = getLastReply(message);
   return lastReply?.user;
 };
+
+// Add method to format message content
+const formatMessageContent = (content) => {
+  if (!content) return '';
+  // Parse markdown and sanitize HTML
+  const rawHtml = marked.parse(content);
+  return DOMPurify.sanitize(rawHtml);
+};
 </script>
 
 <style>
@@ -545,6 +570,109 @@ const getLastReplyUser = (message) => {
 .message-type-bot .avatar {
   background-color: #5865F2 !important;
   border-radius: 50% !important ;
+}
+
+/* Message formatting styles */
+.message-text {
+  color: #E5E7EB;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.message-text p {
+  margin: 0 0 8px 0;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code blocks */
+.message-text pre {
+  background-color: #2D3139;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.message-text code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  background-color: #2D3139;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* Inline formatting */
+.message-text strong {
+  font-weight: 600;
+}
+
+.message-text em {
+  font-style: italic;
+}
+
+.message-text del {
+  text-decoration: line-through;
+}
+
+/* Lists */
+.message-text ul, .message-text ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.message-text li {
+  margin: 4px 0;
+}
+
+/* Blockquotes */
+.message-text blockquote {
+  border-left: 4px solid #4B4B4B;
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: #9CA3AF;
+}
+
+/* Links */
+.message-text a {
+  color: #1264A3;
+  text-decoration: none;
+}
+
+.message-text a:hover {
+  text-decoration: underline;
+}
+
+/* Tables */
+.message-text table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.message-text th,
+.message-text td {
+  border: 1px solid #4B4B4B;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.message-text th {
+  background-color: #2D3139;
+  font-weight: 600;
+}
+
+/* Task lists */
+.message-text input[type="checkbox"] {
+  margin-right: 6px;
+}
+
+/* Syntax highlighting overrides */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
 }
 </style>
 

@@ -127,7 +127,7 @@ export function useSocket(store) {
     });
 
     socket.on('bot:message', (message) => {
-      store.dispatch('chatbot/addMessage', message);
+      store.dispatch('chatbot/addBotResponse', message);
       store.dispatch('chatbot/setLoading', false);
     });
 
@@ -156,9 +156,9 @@ export function useSocket(store) {
     socket.emit('channel:join', channelId, user._id);
   };
 
-  const sendBotMessage = (message, userId) => {
+  const sendBotMessage = (message, userId, workspaceId) => {
     if (!socket) return;
-    socket.emit('bot:message', { message, userId });
+    socket.emit('bot:message', { message, userId, workspaceId });
   };
 
   const leaveChannel = (channelId) => {

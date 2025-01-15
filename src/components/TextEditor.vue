@@ -10,6 +10,7 @@
             :key="index" 
             class="format-button"
             @click="handleFormatClick(icon)"
+            :title="getFormatTooltip(icon)"
           >
             <component :is="icon" class="tool-icon" />
           </button>
@@ -22,6 +23,7 @@
             rows="1"
             :placeholder="placeholder"
             class="text-input"
+            @keydown="handleKeyDown"
             @keydown.enter.prevent="handleSend"
             @keydown.enter.shift.exact="messageText += '\n'"
             @paste="handlePaste"
@@ -51,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { 
   Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, 
@@ -161,57 +163,113 @@ const handleFileUpload = async (file) => {
 };
 
 const handleFormatClick = (formatType) => {
-  const textarea = document.querySelector('textarea');
+  const textarea = document.querySelector('.text-input');
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const selectedText = messageText.value.substring(start, end);
+  
+  let formattedText = '';
+  let cursorOffset = 0;
 
   switch(formatType) {
     case Bold:
-      wrapText(start, end, '**', '**');
+      formattedText = `**${selectedText}**`;
+      cursorOffset = 2;
       break;
     case Italic:
-      wrapText(start, end, '_', '_');
+      formattedText = `_${selectedText}_`;
+      cursorOffset = 1;
       break;
     case Strikethrough:
-      wrapText(start, end, '~~', '~~');
+      formattedText = `~~${selectedText}~~`;
+      cursorOffset = 2;
       break;
     case Code:
-      wrapText(start, end, '`', '`');
-      break;
-    case Quote:
-      wrapText(start, end, '> ', '');
-      break;
-    case Link:
-      if (selectedText) {
-        wrapText(start, end, '[', '](url)');
+      if (selectedText.includes('\n')) {
+        formattedText = `\`\`\`\n${selectedText}\n\`\`\``;
+        cursorOffset = 4;
+      } else {
+        formattedText = `\`${selectedText}\``;
+        cursorOffset = 1;
       }
       break;
+    case Quote:
+      formattedText = selectedText.split('\n').map(line => `> ${line}`).join('\n');
+      cursorOffset = 2;
+      break;
     case ListOrdered:
-      insertList(true);
+      formattedText = selectedText.split('\n').map((line, i) => `${i + 1}. ${line}`).join('\n');
+      cursorOffset = 3;
       break;
     case List:
-      insertList(false);
+      formattedText = selectedText.split('\n').map(line => `- ${line}`).join('\n');
+      cursorOffset = 2;
+      break;
+    case Link:
+      formattedText = `[${selectedText}](url)`;
+      cursorOffset = 3;
       break;
   }
-};
-const wrapText = (start, end, prefix, suffix) => {
-  const beforeText = messageText.value.substring(0, start);
-  const selectedText = messageText.value.substring(start, end);
-  const afterText = messageText.value.substring(end);
-  
-  messageText.value = beforeText + prefix + selectedText + suffix + afterText;
+
+  // Insert the formatted text
+  messageText.value = 
+    messageText.value.substring(0, start) +
+    formattedText +
+    messageText.value.substring(end);
+
+  // Reset cursor position
+  nextTick(() => {
+    textarea.focus();
+    if (start === end) {
+      // No selection, place cursor inside the formatting marks
+      textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+    } else {
+      // Selection exists, place cursor after the formatted text
+      textarea.setSelectionRange(start + formattedText.length, start + formattedText.length);
+    }
+  });
 };
 
-const insertList = (ordered) => {
-  const lines = messageText.value.split('\n');
-  const newLines = lines.map((line, index) => {
-    if (line.trim()) {
-      return ordered ? `${index + 1}. ${line}` : `- ${line}`;
+// Add keyboard shortcuts
+const handleKeyDown = (e) => {
+  if (e.metaKey || e.ctrlKey) {
+    switch(e.key) {
+      case 'b':
+        e.preventDefault();
+        handleFormatClick(Bold);
+        break;
+      case 'i':
+        e.preventDefault();
+        handleFormatClick(Italic);
+        break;
+      case 'k':
+        e.preventDefault();
+        handleFormatClick(Link);
+        break;
+      case 'e':
+        e.preventDefault();
+        handleFormatClick(Code);
+        break;
+      case 'q':
+        e.preventDefault();
+        handleFormatClick(Quote);
+        break;
     }
-    return line;
-  });
-  messageText.value = newLines.join('\n');
+  }
+};
+
+const getFormatTooltip = (icon) => {
+  const tooltips = {
+    [Bold]: 'Bold (⌘B)',
+    [Italic]: 'Italic (⌘I)',
+    [Strikethrough]: 'Strikethrough',
+    [Link]: 'Link (⌘K)',
+    [ListOrdered]: 'Numbered List',
+    [List]: 'Bullet List',
+    [Code]: 'Code (⌘E)',
+    [Quote]: 'Quote (⌘Q)'
+  };
+  return tooltips[icon] || '';
 };
 
 const handleActionClick = async (actionType) => {
