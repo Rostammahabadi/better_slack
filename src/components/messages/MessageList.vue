@@ -152,18 +152,7 @@ const messages = computed(() => {
   if (channelId) {
     return store.getters['messages/getChannelMessages'](channelId);
   } else if (router.currentRoute.value.name === 'bot-conversation') {
-    // Get bot messages and ensure they have required properties
-    return store.getters['chatbot/messages'].map(msg => ({
-      ...msg,
-      _id: msg._id || Date.now() + Math.random(), // Ensure each message has a unique ID
-      user: msg.sender === 'bot' ? {
-        displayName: 'Chatbot',
-        avatarUrl: '/images/bot.png'
-      } : {
-        displayName: 'You',
-        avatarUrl: store.getters['auth/currentUser']?.avatarUrl
-      }
-    }));
+    return store.getters['chatbot/messages']
   } else if (conversationId) {
     return store.getters['messages/getConversationMessages'](conversationId);
   }
@@ -360,9 +349,6 @@ const handleSendMessage = async (messageData) => {
         });
         sendConversationMessage(messageResponse);
       }
-    } else if (router.currentRoute.value.name === 'bot-conversation') {
-      // Handle bot message
-      await store.dispatch('chatbot/sendMessage', messageData.content, router.currentRoute.value.params.workspaceId);
     }
   } catch (error) {
     console.error('Failed to send message:', error);

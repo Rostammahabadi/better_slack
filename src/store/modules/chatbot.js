@@ -32,6 +32,9 @@ const mutations = {
   },
   SET_MESSAGES(state, messages) {
     state.messages = messages;
+  },
+  SET_CONVERSATION(state, conversation) {
+    state.conversation = conversation;
   }
 }
 const actions = {
