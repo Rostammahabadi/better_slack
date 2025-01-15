@@ -122,7 +122,7 @@ onMounted(async () => {
     if (route.params.channelId) {
       const channel = store.getters['channels/getChannelById'](route.params.channelId);
       if (channel) {
-        await store.dispatch('messages/fetchMessages', {
+        await store.dispatch('messages/fetchChannelMessages', {
           channelId: channel.id,
           token: token.value
         });
@@ -132,8 +132,13 @@ onMounted(async () => {
         joinChannel(channel.id, currentUser.value);
       }
     } else if (route.name === 'bot-conversation') {
+      // Clear current channel and conversation
       store.dispatch('channels/clearCurrentChannel');
-      activateBot(currentUser.value._id);
+      store.commit('conversations/setCurrentConversation', null);
+      
+      // Activate bot and fetch messages
+      await store.dispatch('chatbot/activateBot');
+      await store.dispatch('chatbot/fetchMessages');
     }
   } catch (err) {
     if (err.message === 'No access token available') {
@@ -246,6 +251,19 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
   }
 });
 
+// Add a watch for bot conversation route
+watch(() => route.name, async (newRouteName, oldRouteName) => {
+  if (newRouteName === 'bot-conversation') {
+    // Clear current channel and conversation
+    store.dispatch('channels/clearCurrentChannel');
+    store.commit('conversations/setCurrentConversation', null);
+    
+    // Activate bot and fetch messages
+    await store.dispatch('chatbot/activateBot');
+    await store.dispatch('chatbot/fetchMessages');
+  }
+});
+
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
@@ -269,38 +287,21 @@ const sendMessage = async (messageData) => {
       });
       sendRealtimeMessage(messageResponse);
     } else if (route.name === 'bot-conversation') {
+      // Set loading state
+      await store.dispatch('chatbot/setLoading', true);
+      
+      // Create the message object
       const fullMessage = {
         content: messageData.content,
-        channelId: null,
         user: currentUser.value._id,
-        threadId: null,
-        attachments: [],
-        status: 'sent',
-        reactions: [],
-        edited: false,
-        editHistory: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         type: 'bot',
-      }
-      // Handle bot messages
-      // await store.dispatch('messages/sendBotMessage', {
-      //   content: messageData.content,
-      //   channelId: null,
-      //   user: currentUser.value._id,
-      //   threadId: null,
-      //   attachments: [],
-      //   status: 'sent',
-      //   reactions: [],
-      //   edited: false,
-      //   editHistory: [],
-      //   createdAt: new Date().toISOString(),
-      //   updatedAt: new Date().toISOString(),
-      //   type: 'bot',
-      // });
+        status: 'sent',
+        createdAt: new Date().toISOString()
+      };
+      
+      // Add message to store and send via socket
+      await store.dispatch('chatbot/addMessage', fullMessage);
       sendBotMessage(messageData.content, currentUser.value._id);
-      await store.dispatch('chatbot/sendMessage', messageData.content);
-      await store.dispatch('chatbot/setLoading', true);
     } else if (route.params.conversationId) {
       const messageResponse = await store.dispatch('messages/sendConversationMessage', {
         conversationId: route.params.conversationId,
@@ -312,6 +313,7 @@ const sendMessage = async (messageData) => {
     }
   } catch (error) {
     console.error('Failed to send message:', error);
+    await store.dispatch('chatbot/setLoading', false);
   }
 };
 
@@ -426,6 +428,18 @@ const editMessage = async (messageData) => {
     console.error('Error editing message:', error);
   }
 };
+
+// Add computed property for messages
+const messages = computed(() => {
+  if (route.name === 'bot-conversation') {
+    return store.getters['chatbot/messages'];
+  } else if (currentChannel.value) {
+    return store.getters['messages/getChannelMessages'](currentChannel.value._id) || [];
+  } else if (currentConversation.value) {
+    return store.getters['messages/getConversationMessages'](currentConversation.value._id) || [];
+  }
+  return [];
+});
 </script>
 
 <style scoped>

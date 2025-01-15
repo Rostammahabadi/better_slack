@@ -115,7 +115,8 @@ import { useSocket } from '../../services/socketService';
 const store = useStore();
 const router = useRouter();
 const {
-  sendReaction,
+  sendChannelReaction,
+  sendConversationReaction,
   sendReactionRemoved,
   sendEditMessage,
   sendConversationMessage,
@@ -355,16 +356,15 @@ const handleAddReaction = async (emoji, messageId) => {
   if (hoveredMessage.value) {
     const message = hoveredMessage.value;
     const token = store.state.auth.token;
-    
     if (router.currentRoute.value.params.channelId) {
       const currentChannel = store.state.channels.currentChannel._id;
-      const addedReaction = await store.dispatch('messages/addReaction', { 
+      const addedReaction = await store.dispatch('messages/addChannelReaction', { 
         messageId: message._id, 
         reaction: emoji, 
         token, 
         currentChannel 
       });
-      sendReaction(message._id, addedReaction, currentChannel);
+      sendChannelReaction(message._id, addedReaction, currentChannel);
     } else if (router.currentRoute.value.params.conversationId) {
       const conversationId = router.currentRoute.value.params.conversationId;
       const addedReaction = await store.dispatch('conversations/addReaction', { 
@@ -373,7 +373,7 @@ const handleAddReaction = async (emoji, messageId) => {
         token, 
         conversationId 
       });
-      sendReaction(message._id, addedReaction, conversationId);
+      sendConversationReaction(message._id, addedReaction, conversationId);
     }
   }
 };
@@ -385,21 +385,21 @@ const handleRemoveReaction = async (emoji, messageId) => {
   
   if (hoveredMessage.value) {
     const reaction = message.reactions.find(
-      r => r.user === currentUserId && r.emoji === emoji
+      r => r.user._id === currentUserId && r.emoji === emoji
     );
     
     if (router.currentRoute.value.params.channelId) {
       const currentChannel = store.state.channels.currentChannel._id;
-      await store.dispatch('messages/removeReaction', { 
+      await store.dispatch('messages/removeChannelReaction', { 
         messageId: message._id, 
         reactionId: reaction._id, 
         token, 
         currentChannel 
       });
       sendReactionRemoved(message._id, reaction, currentChannel);
-    } else if (router.currentRoute.value.params.id) {
-      const conversationId = router.currentRoute.value.params.id;
-      await store.dispatch('conversations/removeReaction', { 
+    } else if (router.currentRoute.value.params.conversationId) {
+      const conversationId = router.currentRoute.value.params.conversationId;
+      await store.dispatch('conversations/removeConversationReaction', { 
         messageId: message._id, 
         reactionId: reaction._id, 
         token, 
@@ -561,6 +561,7 @@ const getLastReplyUser = (message) => {
   padding: 8px;
   margin-bottom: 16px;
   border-radius: 8px;
+  position: relative;
 }
 
 .message-hovered {
@@ -582,6 +583,7 @@ const getLastReplyUser = (message) => {
 .message-content {
   flex: 1;
   min-width: 0;
+  position: relative;
 }
 
 .message-header {
@@ -651,12 +653,16 @@ const getLastReplyUser = (message) => {
 
 .hover-menu-bottom-right {
   position: absolute;
-  top: -16px;
-  right: 8px;
+  top: 0;
+  right: 0;
   z-index: 100;
   display: flex;
   gap: 4px;
   padding: 4px;
+  transform: translateY(-50%);
+  background-color: #1A1D21;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .thread-count {

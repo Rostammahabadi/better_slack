@@ -1,29 +1,7 @@
 <template>
   <div class="chat-container">
-    <!-- Messages Area -->
-    <div class="messages-area">
-      <div v-for="message in messages" :key="message.id" class="message">
-        <img :src="message.avatar" :alt="message.user" class="message-avatar" />
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-username">{{ message.user }}</span>
-            <span class="message-timestamp">{{ message.timestamp }}</span>
-          </div>
-          <p class="message-text">{{ message.content }}</p>
-          <div v-if="message.reactions" class="message-reactions">
-            <div v-for="reaction in message.reactions" 
-                 :key="reaction.emoji"
-                 class="reaction-badge">
-              <span>{{ reaction.emoji }}</span>
-              <span class="reaction-count">{{ reaction.count }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Message Input -->
-    <div class="input-container">
+    <!-- Text Input and Bottom Tools -->
+    <div class="text-input-container">
       <div class="input-wrapper">
         <!-- Top Formatting Tools -->
         <div class="formatting-tools">
@@ -79,6 +57,7 @@ import {
   Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, 
   Code, Quote, Plus, Type, Smile, AtSign, Image, Mic, PenTool
 } from 'lucide-vue-next';
+
 const props = defineProps({
   message: {
     type: Object,
@@ -91,6 +70,7 @@ const props = defineProps({
     default: 'Message'
   }
 });
+
 const store = useStore();
 const messageText = ref(props.message?.content || '');
 const attachments = ref(props.message?.attachments || []);
@@ -260,177 +240,67 @@ const handleActionClick = async (actionType) => {
 </script>
 
 <style scoped>
-.editor-container {
-  background-color: #1a1a1a;
-  color: #d1d1d1;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.chat-container {
+  width: 100%;
+  background-color: #222529;
+  border: 1px solid #4B4B4B;
+  border-radius: 4px;
 }
 
-.toolbar {
+.text-input-container {
+  width: 100%;
+}
+
+.input-wrapper {
+  width: 100%;
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  flex-direction: column;
 }
 
-.toolbar-button {
-  background: transparent;
+.formatting-tools {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid #4B4B4B;
+}
+
+.format-button {
+  background: none;
   border: none;
-  color: #d1d1d1;
+  color: #ABABAD;
   padding: 4px;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease;
 }
 
-.toolbar-button:hover {
-  background-color: #333333;
+.format-button:hover {
+  background-color: #27242C;
+  color: #FFFFFF;
 }
 
-.toolbar-button svg {
+.tool-icon {
   width: 16px;
   height: 16px;
-}
-
-.editor-content {
-  position: relative;
-}
-
-.message-input {
-  width: 100%;
-  background-color: #2a2a2a;
-  color: #d1d1d1;
-  padding: 8px;
-  border: none;
-  border-radius: 4px;
-  resize: none;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.message-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
-}
-
-.message-input::placeholder {
-  color: #666666;
-}
-
-.bottom-toolbar {
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.toolbar-left {
-  display: flex;
-  gap: 8px;
-}
-
-.input-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.action-buttons-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cancel-button {
-  background: none;
-  border: none;
-  color: #1264A3;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.cancel-button:hover {
-  background-color: rgba(18, 100, 163, 0.1);
-}
-
-.send-button {
-  background-color: #007a5a;
-  color: white;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.send-button:hover {
-  background-color: #006c4f;
-}
-
-.send-button:disabled {
-  background-color: #238636;
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Add hover effect for buttons */
-.toolbar-button:active {
-  transform: translateY(1px);
-}
-
-/* Ensure proper spacing between toolbar sections */
-.top-toolbar {
-  border-bottom: 1px solid #333333;
-  padding-bottom: 8px;
-}
-
-/* Add a subtle transition for smoother interactions */
-.toolbar-button, .message-input {
-  transition: all 0.2s ease;
-}
-
-/* Improve focus states for accessibility */
-.toolbar-button:focus {
-  outline: 2px solid #4a4a4a;
-  outline-offset: 2px;
-}
-
-/* Ensure proper contrast for disabled state */
-.toolbar-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.text-input-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
 }
 
 .text-input {
   width: 100%;
   background-color: transparent;
   border: none;
-  color: #ffffff;
+  color: #FFFFFF;
   resize: none;
-  padding: 8px;
+  padding: 12px;
   min-height: 40px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .text-input::placeholder {
-  color: #9ca3af;
+  color: #9CA3AF;
 }
 
 .text-input:focus {
@@ -442,8 +312,7 @@ const handleActionClick = async (actionType) => {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  padding: 0 8px 8px;
+  padding: 8px 12px;
 }
 
 .action-buttons-right {
@@ -460,7 +329,7 @@ const handleActionClick = async (actionType) => {
   font-weight: 500;
   padding: 6px 12px;
   border-radius: 4px;
-  transition: background-color 0.2s ease;
+  cursor: pointer;
 }
 
 .cancel-button:hover {
@@ -476,7 +345,6 @@ const handleActionClick = async (actionType) => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
 .send-button:hover {

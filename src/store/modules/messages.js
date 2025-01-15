@@ -85,6 +85,30 @@ const actions = {
     }
   },
 
+  async addChannelReaction({ commit }, { messageId, reaction }) {
+    try {
+      const response = await api.post(`/messages/${messageId}/reactions`, { emoji: reaction });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 409) {
+        commit('setError', 'Reaction already exists');
+      } else {
+        commit('setError', error.message);
+      }
+      throw error;
+    }
+  },
+
+  async removeChannelReaction({ commit }, { messageId, reactionId }) {
+    try {
+      const response = await api.delete(`/messages/${messageId}/reactions/${reactionId}`);
+      return response.data;
+    } catch (error) {
+      commit('setError', error.message);
+      throw error;
+    }
+  },
+
   async fetchConversationMessages({ commit }, { conversationId, cursor = null, limit = 30 }) {
     try {
       commit('setLoading', true);
@@ -355,6 +379,7 @@ const mutations = {
       }
     };
   },
+  
 
   addConversationMessage(state, { conversationId, message }) {
     const currentMessages = state.conversationMessages[conversationId]?.messages || [];
@@ -460,8 +485,34 @@ const mutations = {
     }
   },
 
+  ADD_CHANNEL_REACTION(state, { messageId, reaction, channelId }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (!message.reactions) {
+        message.reactions = [];
+      }
+      message.reactions.push(reaction);
+    }
+  },
+
   REMOVE_CONVERSATION_REACTION(state, { messageId, reaction, conversationId }) {
     const messages = state.conversationMessages[conversationId]?.messages || [];
+    const messageIndex = messages.findIndex(m => m._id === messageId);
+    if (messageIndex !== -1) {
+      const message = messages[messageIndex];
+      if (message.reactions) {
+        const reactionIndex = message.reactions.findIndex(r => r._id === reaction._id);
+        if (reactionIndex !== -1) {
+          message.reactions.splice(reactionIndex, 1);
+        }
+      }
+    }
+  },
+
+  REMOVE_CHANNEL_REACTION(state, { messageId, reaction, channelId }) {
+    const messages = state.channelMessages[channelId]?.messages || [];
     const messageIndex = messages.findIndex(m => m._id === messageId);
     if (messageIndex !== -1) {
       const message = messages[messageIndex];

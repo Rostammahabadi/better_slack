@@ -97,11 +97,11 @@ export function useSocket(store) {
 
     // Reaction events
     socket.on('channel:reaction', ({ channelId, messageId, reaction }) => {
-      store.commit('messages/ADD_REACTION', { messageId, reaction, channelId });
+      store.commit('messages/ADD_CHANNEL_REACTION', { messageId, reaction, channelId });
     });
 
     socket.on('channel:reaction_removed', ({ channelId, messageId, reaction }) => {
-      store.commit('messages/REMOVE_REACTION', { messageId, reaction, channelId });
+      store.commit('messages/REMOVE_CHANNEL_REACTION', { messageId, reaction, channelId });
     });
 
     // Conversation events
@@ -277,6 +277,11 @@ export function useSocket(store) {
     socket.emit('channel:created', channel);
   };
 
+  const sendChannelReaction = (messageId, reaction, channelId) => {
+    if (!socket) return;
+    socket.emit('channel:reaction', { messageId, reaction, channelId });
+  };
+
   onUnmounted(() => {
     disconnect();
   });
@@ -329,6 +334,7 @@ export function useSocket(store) {
     sendConversationThreadReply,
     sendChannelCreated,
     activateBot,
-    sendBotMessage
+    sendBotMessage,
+    sendChannelReaction,
   };
 }
