@@ -1,11 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginView from '../views/LoginView.vue'
-import CallbackView from '../views/CallbackView.vue'
-import WorkspaceView from '../views/WorkspaceView.vue'
-import SignupView from '../views/SignupView.vue'
-import JoinView from '../views/JoinView.vue'
 import store from '../store'
-import InviteView from '../views/InviteView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -17,50 +11,50 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: () => import('../views/LoginView.vue')
     },
     {
       path: '/signup',
       name: 'signup',
-      component: SignupView
+      component: () => import('../views/SignupView.vue')
     },
     {
       path: '/callback',
       name: 'callback',
-      component: CallbackView
+      component: () => import('../views/CallbackView.vue')
     },
     {
       path: '/join',
       name: 'join',
-      component: JoinView
+      component: () => import('../views/JoinView.vue')
     },
     {
       path: '/invites/:token',
       name: 'invite',
-      component: InviteView
+      component: () => import('../views/InviteView.vue')
     },
     {
       path: '/workspaces/:workspaceId',
       name: 'workspace',
-      component: WorkspaceView,
+      component: () => import('../views/WorkspaceView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/workspaces/:workspaceId/channels/:channelId',
       name: 'channel',
-      component: WorkspaceView,
+      component: () => import('../views/WorkspaceView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/workspaces/:workspaceId/conversations/bot',
       name: 'bot-conversation',
-      component: WorkspaceView,
+      component: () => import('../views/WorkspaceView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/workspaces/:workspaceId/conversations/:conversationId',
       name: 'conversation',
-      component: WorkspaceView,
+      component: () => import('../views/WorkspaceView.vue'),
       meta: { requiresAuth: true }
     }
   ]
