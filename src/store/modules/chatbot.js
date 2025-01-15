@@ -1,11 +1,15 @@
 // store/modules/chatbot.js
-
+import { api } from '@/services/api';
 const state = {
   messages: [], // Chat messages
   isConnected: false, // Bot connection status
   userInput: '', // User's input text
   isActive: false, // Whether the bot is currently active
   loading: false,
+  error: null,
+  sendingMessage: false,
+  retryCount: 0,
+  conversation: {},
 }
 const mutations = {
   ADD_MESSAGE(state, message) {
@@ -31,35 +35,6 @@ const mutations = {
   }
 }
 const actions = {
-  async activateBot({ commit, dispatch, rootState }) {
-    try {
-      commit('SET_LOADING', true);
-      commit('CLEAR_MESSAGES');
-      
-      // Emit bot:connect event through socket
-      if (rootState.socket.socket) {
-        rootState.socket.socket.emit('bot:connect', {
-          userId: rootState.auth.user._id
-        });
-      }
-      
-      commit('SET_ACTIVE', true);
-      
-      // Add welcome message
-      dispatch('addMessage', {
-        content: 'Hello! I am your AI assistant. How can I help you today?',
-        sender: 'bot',
-        type: 'bot'
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Failed to activate bot:', error);
-      return false;
-    } finally {
-      commit('SET_LOADING', false);
-    }
-  },
 
   async addBotResponse({ commit }, message) {
     commit('ADD_MESSAGE', {
@@ -76,12 +51,13 @@ const actions = {
     });
   },
   
-  async fetchMessages({ commit, rootState }) {
+  async fetchConversation({ commit }, workspaceId) {
     try {
       commit('SET_LOADING', true);
+      const response = await api.get(`/chatbot/conversation/${workspaceId}`);
+      commit('SET_CONVERSATION', response.data);
+      commit('SET_MESSAGES', response.data.messages);
       
-      // If we implement message persistence, we can fetch messages here
-      // For now, we'll just ensure the messages array is initialized
       if (!state.messages.length) {
         commit('SET_MESSAGES', []);
       }
@@ -96,12 +72,7 @@ const actions = {
   },
 
   addMessage({ commit }, message) {
-    commit('ADD_MESSAGE', {
-      _id: Date.now() + Math.random(),
-      ...message,
-      timestamp: new Date().toISOString(),
-      type: 'bot'
-    });
+    commit('ADD_MESSAGE', message);
   },
 
   setLoading({ commit }, status) {

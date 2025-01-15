@@ -241,7 +241,6 @@ const selectUser = async (user) => {
     }
     
     // Otherwise activate bot and start new conversation
-    await store.dispatch('chatbot/activateBot');
     store.commit('conversations/addConversation', {
       id: 'bot',
       name: 'Chatbot',

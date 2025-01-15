@@ -137,8 +137,8 @@ onMounted(async () => {
       store.commit('conversations/setCurrentConversation', null);
       
       // Activate bot and fetch messages
-      await store.dispatch('chatbot/activateBot');
-      await store.dispatch('chatbot/fetchMessages');
+      activateBot(currentUser.value._id);
+      await store.dispatch('chatbot/fetchConversation', currentWorkspace.value._id);
     }
   } catch (err) {
     if (err.message === 'No access token available') {
@@ -257,10 +257,6 @@ watch(() => route.name, async (newRouteName, oldRouteName) => {
     // Clear current channel and conversation
     store.dispatch('channels/clearCurrentChannel');
     store.commit('conversations/setCurrentConversation', null);
-    
-    // Activate bot and fetch messages
-    await store.dispatch('chatbot/activateBot');
-    await store.dispatch('chatbot/fetchMessages');
   }
 });
 
