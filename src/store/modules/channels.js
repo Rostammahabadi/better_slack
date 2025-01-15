@@ -2,30 +2,25 @@ const state = {
   channels: [],
   currentChannel: null,
   loading: false,
-  error: null
-};
-
-// Helper function to sort channels alphabetically
-const sortChannels = (channels) => {
-  return [...channels].sort((a, b) => a.name.localeCompare(b.name));
+  error: null,
 };
 
 const mutations = {
   SET_CHANNELS(state, channels) {
-    state.channels = sortChannels(channels);
+    state.channels = channels;
   },
   SET_CURRENT_CHANNEL(state, channel) {
     state.currentChannel = channel;
   },
   ADD_CHANNEL(state, channel) {
     state.channels.push(channel);
-    state.channels = sortChannels(state.channels);
+    state.channels = state.channels;
   },
   UPDATE_CHANNEL(state, updatedChannel) {
     const index = state.channels.findIndex(ch => ch._id === updatedChannel._id);
     if (index !== -1) {
       state.channels.splice(index, 1, updatedChannel);
-      state.channels = sortChannels(state.channels);
+      state.channels = state.channels;
     }
   },
   DELETE_CHANNEL(state, channelId) {
@@ -110,7 +105,10 @@ const getters = {
   currentChannel: state => state.currentChannel,
   isLoading: state => state.loading,
   error: state => state.error,
-  getChannelById: state => id => state.channels.find(channel => channel.id === id)
+  getChannelById: state => id => state.channels.find(channel => channel.id === id),
+  sortedChannels: state => {
+    return [...state.channels].sort((a, b) => a.name.localeCompare(b.name));
+  },
 };
 
 export default {

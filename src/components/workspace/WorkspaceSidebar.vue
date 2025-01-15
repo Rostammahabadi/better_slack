@@ -195,7 +195,7 @@ const filteredParticipants = computed(() => {
 
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
-  channels: store.getters['channels/channels'] || [],
+  channels: store.getters['channels/sortedChannels'] || [],
   currentChannel: store.getters['channels/currentChannel'],
   sentInvites: store.getters['invites/sentInvites'] || [],
   currentUser: store.getters['auth/currentUser'],

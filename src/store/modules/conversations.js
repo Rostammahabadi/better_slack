@@ -25,7 +25,7 @@ const actions = {
       const response = await api.get('/conversations');
       commit('setConversations', response.data);
     } catch (error) {
-      commit('setError', error.message);
+      commit('setError', error.response?.data?.message || 'Failed to fetch conversations');
     } finally {
       commit('setLoading', false);
     }
