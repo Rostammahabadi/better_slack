@@ -1,16 +1,16 @@
 <template>
   <div class="workspace-layout">
-    <WorkspaceNavBar/>
-    <div class="workspace-sidebar">
+    <WorkspaceNavBar @toggle-sidebar="toggleSidebar"/>
+    <div class="workspace-sidebar" :class="{ show: isSidebarVisible }">
       <WorkspaceSidebar />
     </div>
-    <div class="workspace-main">
+    <div class="workspace-main" @click="handleMainClick">
       <WorkspaceHeader />
       <div class="workspace-content">
         <slot></slot>
       </div>
     </div>
-    <div v-if="showThreadSidebar" class="thread-sidebar">
+    <div v-if="showThreadSidebar" class="thread-sidebar" :class="{ show: showThreadSidebar }">
       <div class="thread-header">
         <h3>Thread</h3>
         <button class="close-thread" @click="closeThread">×</button>
@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import WorkspaceNavBar from './WorkspaceNavBar.vue';
 import WorkspaceSidebar from './WorkspaceSidebar.vue';
 import WorkspaceHeader from './WorkspaceHeader.vue';
@@ -155,8 +155,35 @@ const sendThreadReply = async (messageData) => {
   }
 };
 
+const isSidebarVisible = ref(window.innerWidth > 768);
+const isMobile = ref(window.innerWidth <= 768);
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768;
+  if (!isMobile.value) {
+    isSidebarVisible.value = true;
+  }
+};
+
+const toggleSidebar = () => {
+  if (isMobile.value) {
+    isSidebarVisible.value = !isSidebarVisible.value;
+  }
+};
+
+const handleMainClick = () => {
+  if (isMobile.value && isSidebarVisible.value) {
+    isSidebarVisible.value = false;
+  }
+};
+
 onMounted(() => {
+  window.addEventListener('resize', handleResize);
   sendWorkspaceJoined(currentWorkspace.value._id, store.state.auth.user.user);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 
@@ -171,6 +198,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
+  background-color: #1A1D21;
 }
 
 .workspace-sidebar {
@@ -179,6 +207,9 @@ onMounted(() => {
   background-color: #19171D;
   color: #D1D2D3;
   overflow-y: auto;
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 15;
 }
 
 .workspace-main {
@@ -187,6 +218,8 @@ onMounted(() => {
   flex-direction: column;
   background-color: #1A1D21;
   min-width: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .workspace-content {
@@ -203,6 +236,100 @@ onMounted(() => {
   border-left: 1px solid #4B4B4B;
   display: flex;
   flex-direction: column;
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 15;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .workspace-layout {
+    position: fixed;
+  }
+
+  .workspace-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 320px;
+    z-index: 25;
+    transform: translateX(-100%);
+    border-right: 1px solid #4B4B4B;
+  }
+
+  .workspace-sidebar.show {
+    transform: translateX(0);
+  }
+
+  .workspace-main {
+    width: 100%;
+    margin-left: 0;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+  }
+
+  /* Push main content when sidebar is shown */
+  .workspace-sidebar.show ~ .workspace-main {
+    transform: translateX(85%);
+  }
+
+  .thread-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    z-index: 30;
+    transform: translateX(100%);
+  }
+
+  .thread-sidebar.show {
+    transform: translateX(0);
+  }
+
+  /* Add overlay when sidebar is shown */
+  .workspace-sidebar.show::before,
+  .thread-sidebar.show::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+  }
+}
+
+/* Small Mobile Styles */
+@media (max-width: 480px) {
+  .workspace-sidebar {
+    width: 85%;
+  }
+
+  /* Push main content when sidebar is shown on small mobile */
+  .workspace-sidebar.show ~ .workspace-main {
+    transform: translateX(85%);
+  }
+}
+
+/* Safe Area Handling */
+@supports (padding: max(0px)) {
+  .workspace-layout {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  @media (max-width: 768px) {
+    .workspace-sidebar,
+    .thread-sidebar {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
 }
 
 .thread-header {

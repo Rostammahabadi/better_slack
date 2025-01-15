@@ -270,61 +270,70 @@ const selectConversation = (conversation) => {
 <style scoped>
 .sidebar {
   height: 100%;
+  background-color: #19171D;
+  color: #D1D2D3;
   display: flex;
   flex-direction: column;
-  padding: 10px 0;
+  overflow: hidden;
 }
 
 .workspace-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
-  height: 49px;
+  padding: 16px;
   border-bottom: 1px solid #4B4B4B;
+  background-color: #19171D;
 }
 
 .workspace-name {
   font-size: 18px;
   font-weight: 700;
   color: #FFFFFF;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.new-message-button {
-  background: none;
-  border: none;
-  color: #FFFFFF;
-  cursor: pointer;
-  padding: 4px;
+.loading-state {
+  padding: 16px;
+  color: #ABABAD;
+  text-align: center;
 }
 
 .search-bar {
   padding: 12px 16px;
+  border-bottom: 1px solid #4B4B4B;
 }
 
 .search-bar input {
   width: 100%;
-  padding: 4px 8px;
+  padding: 8px 12px;
+  background-color: #3F3F3F;
+  border: 1px solid transparent;
   border-radius: 4px;
-  border: 1px solid #565856;
-  background-color: #363636;
   color: #FFFFFF;
+  font-size: 14px;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #1264A3;
 }
 
 .sidebar-section {
   padding: 16px 0;
+  border-bottom: 1px solid #4B4B4B;
 }
 
 .section-header {
+  padding: 0 16px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
-  margin-bottom: 4px;
 }
 
 .section-title {
   font-size: 15px;
+  font-weight: 700;
   color: #ABABAD;
 }
 
@@ -332,33 +341,24 @@ const selectConversation = (conversation) => {
   background: none;
   border: none;
   color: #ABABAD;
+  font-size: 18px;
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 4px 8px;
   border-radius: 4px;
 }
 
-.add-button:hover {
-  background-color: #27242C;
-}
-
 .section-items {
-  margin-top: 4px;
+  overflow-y: auto;
 }
 
 .section-item {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
-  color: #ABABAD;
+  padding: 6px 16px;
   cursor: pointer;
-  border-radius: 4px;
-  margin: 0 8px;
+  gap: 8px;
+  color: #ABABAD;
+  transition: background-color 0.2s;
 }
 
 .section-item:hover {
@@ -366,130 +366,166 @@ const selectConversation = (conversation) => {
 }
 
 .section-item.active {
-  background-color: #1164A3;
+  background-color: #1264A3;
   color: #FFFFFF;
 }
 
-.icon {
-  margin-right: 8px;
-  font-size: 16px;
+.chatbot-item {
+  margin-bottom: 8px;
 }
 
-.status-icon {
-  margin-right: 8px;
-  font-size: 12px;
-}
-
-.you-label {
-  margin-left: 4px;
-  font-size: 12px;
-  color: #ABABAD;
-}
-
-.pending-invite {
-  opacity: 0.8;
-}
-
-.pending-label {
-  margin-left: 4px;
-  font-size: 12px;
-  color: #ABABAD;
-  font-style: italic;
-}
-
-.add-channels {
-  margin-top: 4px;
-  color: #1D9BD1;
-}
-
-.invite-button {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background-color: transparent;
-  border: 1px solid #565856;
-  border-radius: 4px;
-  color: #ABABAD;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  width: 100%;
-}
-
-.invite-button:hover {
-  background-color: #222529;
-  color: #FFFFFF;
-}
-
-.invite-button i {
-  font-size: 12px;
+.conversation-avatar {
+  width: 24px;
+  height: 24px;
+  position: relative;
 }
 
 .user-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
   object-fit: cover;
 }
 
 .user-avatar-fallback {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
   background-color: #4B4B4B;
-  color: #FFFFFF;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 500;
+  color: #FFFFFF;
 }
 
 .conversation-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.conversation-info span {
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.additional-participants {
-  color: #9CA3AF;
-  font-size: 12px;
-  margin-left: 4px;
-}
-
-.role-label {
-  margin-left: 4px;
-  font-size: 12px;
-  color: #ABABAD;
-  background-color: #363636;
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.loading-state {
-  padding: 16px;
-  text-align: center;
-  color: #ABABAD;
-}
-
-.conversation-avatar {
-  flex-shrink: 0;
-  margin-right: 12px;
-}
-
-.chatbot-item {
-  border-bottom: 1px solid #4B4B4B;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
 }
 
 .bot-status {
   font-size: 12px;
-  color: #5865F2;
-  display: block;
+  color: #ABABAD;
+}
+
+.additional-participants {
+  font-size: 12px;
+  color: #ABABAD;
+  margin-left: 4px;
+}
+
+.invite-button {
+  width: 100%;
+  padding: 8px 16px;
+  margin-top: 16px;
+  background: none;
+  border: 1px solid #4B4B4B;
+  border-radius: 4px;
+  color: #D1D2D3;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.invite-button:hover {
+  background-color: #27242C;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: 100%;
+  }
+
+  .workspace-header {
+    padding: 12px;
+  }
+
+  .workspace-name {
+    font-size: 16px;
+  }
+
+  .search-bar {
+    padding: 8px 12px;
+  }
+
+  .search-bar input {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .sidebar-section {
+    padding: 12px 0;
+  }
+
+  .section-header {
+    padding: 0 12px 6px;
+  }
+
+  .section-title {
+    font-size: 14px;
+  }
+
+  .section-item {
+    padding: 8px 12px;
+    min-height: 44px; /* Better touch target */
+  }
+
+  .add-button {
+    padding: 8px;
+    min-width: 44px; /* Better touch target */
+    min-height: 44px;
+  }
+}
+
+/* Small Mobile Styles */
+@media (max-width: 480px) {
+  .workspace-header {
+    padding: 10px;
+  }
+
+  .workspace-name {
+    font-size: 15px;
+  }
+
+  .section-item {
+    padding: 10px 12px;
+    min-height: 48px; /* Even larger touch target */
+  }
+
+  .invite-button {
+    margin: 12px;
+    width: calc(100% - 24px);
+    height: 48px;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) {
+  .section-item:active {
+    background-color: #27242C;
+  }
+
+  .section-items {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .add-button:active,
+  .invite-button:active {
+    background-color: #27242C;
+  }
 }
 </style> 

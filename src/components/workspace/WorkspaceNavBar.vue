@@ -1,5 +1,12 @@
 <template>
   <nav class="workspace-nav">
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-button" @click="$emit('toggle-sidebar')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
     <div class="nav-top">
       <!-- Workspace Icon -->
       <div class="nav-item workspace-icon" @click="toggleWorkspaceMenu" ref="workspaceMenuTrigger">
@@ -213,6 +220,8 @@ const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspa
 const user = computed(() => store.getters['auth/currentUser']);
 const userAvatar = user.value.picture || user.value.avatarUrl;
 
+const emit = defineEmits(['toggle-sidebar']);
+
 const toggleWorkspaceMenu = () => {
   showWorkspaceMenu.value = !showWorkspaceMenu.value;
   if (showWorkspaceMenu.value) {
@@ -319,6 +328,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Base styles */
 .workspace-nav {
   width: 64px;
   height: 100vh;
@@ -329,8 +339,137 @@ onUnmounted(() => {
   padding: 12px 0;
   flex-shrink: 0;
   border-right: 1px solid #4B4B4B;
+  position: relative;
+  z-index: 20;
 }
 
+.mobile-menu-button {
+  display: none;
+  background: none;
+  border: none;
+  color: #D1D2D3;
+  padding: 8px;
+  cursor: pointer;
+  position: fixed;
+  top: 12px;
+  left: 72px;
+  z-index: 35;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background-color: rgba(26, 29, 33, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #4B4B4B;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .workspace-nav {
+    width: 56px;
+    padding: 8px 0;
+  }
+
+  .mobile-menu-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-item {
+    padding: 8px 0;
+  }
+
+  .icon-container {
+    width: 32px;
+    height: 32px;
+  }
+
+  .workspace-icon .square-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  .profile {
+    width: 32px;
+    height: 32px;
+  }
+
+  .profile-img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .workspace-menu,
+  .user-menu {
+    position: fixed;
+    left: 56px !important;
+    border-radius: 0;
+    height: 100vh;
+    margin: 0;
+  }
+
+  .workspace-menu {
+    top: 0;
+    width: calc(100vw - 56px);
+    max-width: 320px;
+  }
+
+  .user-menu {
+    bottom: 0;
+    width: calc(100vw - 56px);
+    max-width: 320px;
+  }
+}
+
+/* Small Mobile Styles */
+@media (max-width: 480px) {
+  .workspace-nav {
+    width: 48px;
+    padding: 6px 0;
+  }
+
+  .mobile-menu-button {
+    left: 56px;
+    top: 10px;
+  }
+
+  .icon-container {
+    width: 28px;
+    height: 28px;
+  }
+
+  .workspace-icon .square-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .workspace-menu,
+  .user-menu {
+    left: 48px !important;
+    width: calc(100vw - 48px);
+  }
+}
+
+/* Safe Area Handling */
+@supports (padding: max(0px)) {
+  .workspace-nav {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .mobile-menu-button {
+    top: max(12px, env(safe-area-inset-top));
+  }
+}
+
+/* Existing styles with improvements */
 .nav-top {
   display: flex;
   flex-direction: column;
@@ -740,5 +879,26 @@ onUnmounted(() => {
 
 .create-workspace-button:active {
   background-color: #005e44;
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) {
+  .nav-item,
+  .workspace-item,
+  .menu-button {
+    transition: background-color 0.3s;
+  }
+
+  .nav-item:active .icon-container {
+    background-color: #27242C;
+  }
+
+  .workspace-item:active {
+    background-color: #27242C;
+  }
+
+  .menu-button:active {
+    background-color: #27242C;
+  }
 }
 </style> 
