@@ -122,8 +122,6 @@ onMounted(async () => {
     if (route.params.channelId) {
       const channel = store.getters['channels/getChannelById'](route.params.channelId);
       if (channel) {
-        // come back to
-        // Fetch messages for the channel
         await store.dispatch('messages/fetchMessages', {
           channelId: channel.id,
           token: token.value

@@ -272,6 +272,11 @@ export function useSocket(store) {
     socket = null;
   };
 
+  const sendChannelCreated = (channel) => {
+    if (!socket) return;
+    socket.emit('channel:created', channel);
+  };
+
   onUnmounted(() => {
     disconnect();
   });
@@ -322,6 +327,7 @@ export function useSocket(store) {
     sendConversationMessageEdit,
     sendChannelThreadReply,
     sendConversationThreadReply,
+    sendChannelCreated,
     activateBot,
     sendBotMessage
   };

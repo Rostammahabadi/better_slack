@@ -101,7 +101,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useSocket } from '../../services/socketService';
 const store = useStore();
 const {
-  sendChannelCreated
+  sendChannelCreated,
 } = useSocket(store);
 
 const props = defineProps({
@@ -129,11 +129,16 @@ const isValid = computed(() => {
 });
 
 const validateChannelName = () => {
-  // Convert to lowercase and replace invalid characters
-  channelName.value = channelName.value.toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  // Only convert to lowercase while typing
+  channelName.value = channelName.value.toLowerCase();
+};
+
+const formatChannelName = (name) => {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9-\s]/g, '-') // Replace invalid chars (except spaces) with hyphens
+    .replace(/\s+/g, '-')          // Replace spaces with hyphens
+    .replace(/-+/g, '-')           // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, '');        // Remove leading/trailing hyphens
 };
 
 const createChannel = async () => {
@@ -147,7 +152,7 @@ const createChannel = async () => {
     const token = store.getters['auth/token'];
     
     const channelData = {
-      name: channelName.value,
+      name: formatChannelName(channelName.value),
       description: channelDescription.value,
       type: isPrivate.value ? 'private' : 'public'
     };
@@ -158,10 +163,14 @@ const createChannel = async () => {
       token
     });
 
-    sendChannelCreated(channel);
+    // Add the new channel to the channels list
+    store.commit('channels/ADD_CHANNEL', channel);
 
     // Set the new channel as active
     store.commit('channels/SET_CURRENT_CHANNEL', channel);
+
+    // Notify other users about the new channel
+    sendChannelCreated(channel);
 
     // Update URL without triggering a full navigation
     router.replace({
@@ -189,7 +198,7 @@ const createChannel = async () => {
 };
 </script>
 
-<style scoped>
+<style>
 .modal-overlay {
   position: fixed;
   top: 0;

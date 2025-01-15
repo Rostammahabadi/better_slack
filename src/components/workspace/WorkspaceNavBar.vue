@@ -232,19 +232,7 @@ const switchWorkspace = async (workspaceId) => {
       sendWorkspaceLeft(currentWorkspace.value._id, user.value);
     }
 
-    // Fetch the workspace data
-    await store.dispatch('workspaces/fetchWorkspace', {
-      workspaceId,
-      token: store.state.auth.token
-    });
-
-    // Fetch channels for the new workspace
-    await store.dispatch('channels/fetchChannels', {
-      workspaceId,
-      token: store.state.auth.token
-    });
-
-    // Navigate to the workspace
+    // Navigate to the workspace - the WorkspaceView component will handle the data fetching
     router.push(`/workspaces/${workspaceId}`);
     showWorkspaceMenu.value = false;
 
