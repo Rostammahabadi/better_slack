@@ -76,8 +76,10 @@
       <!-- User Profile -->
       <div class="nav-item" @click="toggleUserMenu" ref="userMenuTrigger">
         <div class="icon-container profile">
+          <div v-if="user?.userStatus?.emoji" class="status-emoji">
+            {{ user.userStatus.emoji }}
+          </div>
           <img :src="userAvatar" alt="Profile" class="profile-img" />
-          <div class="status-indicator"></div>
         </div>
 
         <!-- User Menu Popup -->
@@ -93,7 +95,7 @@
 
           <!-- Status Update -->
           <div class="menu-section">
-            <button class="menu-button status-button">
+            <button class="menu-button status-button" @click="openStatusModal">
               <span class="emoji">😊</span>
               Update your status
             </button>
@@ -101,38 +103,10 @@
 
           <!-- Set Presence -->
           <div class="menu-section">
-            <button class="menu-button">
+            <button class="menu-button" @click="openSetAwayModal">
               Set yourself as away
             </button>
-            <button class="menu-button">
-              <div class="button-content">
-                <span>Pause notifications</span>
-                <span class="button-arrow">›</span>
-              </div>
-            </button>
           </div>
-
-          <!-- Profile & Settings -->
-          <div class="menu-section">
-            <button class="menu-button">Profile</button>
-            <button class="menu-button">
-              <div class="button-content">
-                <span>Preferences</span>
-                <span class="preferences-icon">⌘,</span>
-              </div>
-            </button>
-          </div>
-
-          <!-- Downloads -->
-          <div class="menu-section">
-            <button class="menu-button">
-              <div class="button-content">
-                <span>Downloads</span>
-                <span class="downloads-icon">↓</span>
-              </div>
-            </button>
-          </div>
-
           <!-- Sign Out -->
           <div class="menu-section">
             <button class="menu-button sign-out" @click="signOut">
@@ -167,6 +141,12 @@
         </div>
       </div>
     </div>
+
+    <!-- Add status modal -->
+    <StatusUpdateModal v-if="showStatusModal" @close="closeStatusModal" />
+    
+    <!-- Add set away modal -->
+    <SetAwayModal v-if="showSetAwayModal" @close="closeSetAwayModal" />
   </nav>
 </template>
 
@@ -175,6 +155,8 @@ import { ref, computed, onMounted, onUnmounted, inject } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useSocket } from '../../services/socketService';
+import StatusUpdateModal from '../modals/StatusUpdateModal.vue';
+import SetAwayModal from '../modals/SetAwayModal.vue';
 
 const auth0 = inject('auth0');
 
@@ -187,6 +169,8 @@ const userMenu = ref(null);
 const workspaceMenuTrigger = ref(null);
 const showAddWorkspaceModal = ref(false);
 const newWorkspaceName = ref('');
+const showStatusModal = ref(false);
+const showSetAwayModal = ref(false);
 
 const {
   sendWorkspaceJoined,
@@ -240,6 +224,15 @@ const addWorkspace = () => {
 const closeAddWorkspaceModal = () => {
   showAddWorkspaceModal.value = false;
   newWorkspaceName.value = '';
+};
+
+const openSetAwayModal = () => {
+  showSetAwayModal.value = true;
+  showUserMenu.value = false;
+};
+
+const closeSetAwayModal = () => {
+  showSetAwayModal.value = false;
 };
 
 const createWorkspace = async () => {
@@ -296,6 +289,14 @@ const signOut = async () => {
     // Fallback to login page if there's an error
     router.push('/login');
   }
+};
+
+const openStatusModal = () => {
+  showStatusModal.value = true;
+};
+
+const closeStatusModal = () => {
+  showStatusModal.value = false;
 };
 
 onMounted(() => {
@@ -880,5 +881,36 @@ onUnmounted(() => {
   .menu-button:active {
     background-color: #27242C;
   }
+}
+
+.icon-container.profile {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.profile-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.status-emoji {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  background-color: #2BAC76;  /* Changed to teal/green color */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border: 2px solid #1A1D21;  /* Keeping dark border for contrast */
+  z-index: 1;
+  line-height: 1;  /* Added to ensure vertical centering */
+  padding: 2px;    /* Added to give the emoji some breathing room */
 }
 </style> 

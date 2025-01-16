@@ -1,6 +1,5 @@
 Production ready application
 Adhere to Vue 3 best practices
-Never change functionality of existing code just add new features
 Never add a new file unless directed by the user
 The project uses a realtime socket connection to send and receive messages via the socketService.js file
 The project manages state with vuex and the store/modules/ files

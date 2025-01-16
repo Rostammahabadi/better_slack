@@ -540,7 +540,7 @@ const formatMessageContent = (content) => {
 };
 </script>
 
-<style>
+<style scoped>
 /* Bot specific styles */
 .message-type-bot .message-text {
   color: #FFFFFF !important;

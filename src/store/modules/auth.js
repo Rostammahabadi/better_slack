@@ -101,6 +101,7 @@ const actions = {
   },
 
   async updateStatus({ commit, state }, status) {
+    const { text, emoji } = status;
     try {
       await fetch(`${import.meta.env.VITE_API_URL}/api/users/status`, {
         method: 'PUT',
@@ -108,7 +109,7 @@ const actions = {
           'Authorization': `Bearer ${state.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ text, emoji })
       });
   
       commit('SET_STATUS', status);
