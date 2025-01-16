@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue';
+import { ref } from 'vue';
 import { io } from 'socket.io-client';
 
 let socket = null;
@@ -11,31 +11,62 @@ export function useSocket(store) {
 
   const initSocket = (token) => {
     if (socket) return;
-    socket = io(process.env.VITE_SOCKET_URL, {
-      autoConnect: false,
-      withCredentials: true,
-      auth: {
-        token: token
-      }
+
+    console.log('[Socket] Initializing socket connection...');
+    
+    socket = io(import.meta.env.VITE_SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     // Connection events
     socket.on('connect', () => {
+      console.log('[Socket] Connected successfully', { socketId: socket.id });
       isConnected.value = true;
-      console.log('Connected to server');
-    });
-
-    socket.on('disconnect', () => {
-      isConnected.value = false;
-      console.log('Disconnected from server');
-    });
-
-    socket.on('error', (error) => {
-      store.commit('setError', error.message);
     });
 
     socket.on('connect_error', (error) => {
-      store.commit('setConnectionError', error.message);
+      console.error('[Socket] Connection error:', { 
+        error: error.message,
+        type: error.type,
+        description: error.description 
+      });
+      isConnected.value = false;
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('[Socket] Disconnected:', { 
+        reason,
+        wasConnected: isConnected.value,
+        socketId: socket?.id,
+        transportState: socket?.io?.engine?.transport?.ws?.readyState
+      });
+      isConnected.value = false;
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('[Socket] Reconnected after', attemptNumber, 'attempts');
+      isConnected.value = true;
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('[Socket] Attempting to reconnect:', attemptNumber);
+    });
+
+    socket.on('reconnect_error', (error) => {
+      console.error('[Socket] Reconnection error:', {
+        error: error.message,
+        type: error.type,
+        description: error.description
+      });
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('[Socket] Failed to reconnect after all attempts');
+      isConnected.value = false;
     });
 
     // Channel events
@@ -194,6 +225,11 @@ export function useSocket(store) {
     socket.emit('conversation:typing', { conversationId, isTyping });
   };
 
+  const sendAddedUsersToChannel = (channelId, userIds) => {
+    if (!socket) return;
+    socket.emit('channel:added_users', { channelId, userIds });
+  };
+
   const sendConversationMessage = (message) => {
     if (!socket) return;
     socket.emit('conversation:message', message);
@@ -255,16 +291,45 @@ export function useSocket(store) {
   };
 
   const disconnect = () => {
-    if (!socket) return;
-    
+    if (!socket) {
+      console.log('[Socket] No socket connection to disconnect');
+      return;
+    }
+
+    console.log('[Socket] Starting disconnect process', {
+      socketId: socket.id,
+      isConnected: socket.connected,
+      hasTransport: !!socket.io?.engine?.transport
+    });
+
     // Clean up all conversations
-    Object.keys(store.state.conversations.activeUsers).forEach(conversationId => {
-      sendConversationLeft(conversationId, store.state.auth.user);
+    const activeConversations = Object.keys(store.state.conversations.activeUsers);
+    console.log('[Socket] Cleaning up conversations:', activeConversations);
+    
+    activeConversations.forEach(conversationId => {
+      try {
+        sendConversationLeft(conversationId, store.state.auth.user);
+      } catch (error) {
+        console.error('[Socket] Error leaving conversation:', {
+          conversationId,
+          error: error.message
+        });
+      }
     });
     
-    socket.disconnect();
+    try {
+      socket.disconnect();
+      console.log('[Socket] Disconnected successfully');
+    } catch (error) {
+      console.error('[Socket] Error during disconnect:', error);
+    }
+
     socket.removeAllListeners();
+    console.log('[Socket] Removed all listeners');
+    
     socket = null;
+    isConnected.value = false;
+    console.log('[Socket] Reset socket instance');
   };
 
   const sendChannelCreated = (channel) => {
@@ -276,10 +341,6 @@ export function useSocket(store) {
     if (!socket) return;
     socket.emit('channel:reaction', { messageId, reaction, channelId });
   };
-
-  onUnmounted(() => {
-    disconnect();
-  });
 
   const sendChannelMessageEdit = (channelId, messageId, content) => {
     if (socket) {
@@ -301,6 +362,12 @@ export function useSocket(store) {
     }
   };
 
+  const cleanup = () => {
+    messages.value = [];
+    typingUsers.value.clear();
+    channelUsers.value = [];
+  };
+
   return {
     isConnected,
     channelUsers,
@@ -308,6 +375,7 @@ export function useSocket(store) {
     typingUsers,
     connect,
     disconnect,
+    cleanup,
     joinChannel,
     leaveChannel,
     sendChannelMessage,
@@ -330,5 +398,6 @@ export function useSocket(store) {
     activateBot,
     sendBotMessage,
     sendChannelReaction,
+    sendAddedUsersToChannel,
   };
 }

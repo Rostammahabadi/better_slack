@@ -33,6 +33,18 @@
             <span class="prefix">{{ headerPrefix }}</span>
             {{ headerName }}
           </h2>
+          <div class="channel-actions" v-if="currentChannel && (currentChannel.type === 'public' || (currentChannel.type === 'private' && currentChannel.createdBy === currentUser?._id))">
+            <button 
+              class="action-button"
+              @click="showAddUsersModal = true"
+              title="Add people to channel"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Add people</span>
+            </button>
+          </div>
         </div>
         <div class="channel-description">
           {{ headerDescription }}
@@ -50,6 +62,13 @@
         />
       </div>
     </div>
+
+    <!-- Add Channel Users Modal -->
+    <AddChannelUsersModal
+      v-if="showAddUsersModal && currentChannel"
+      :channelId="currentChannel._id"
+      @close="showAddUsersModal = false"
+    />
   </WorkspaceLayout>
 </template>
 
@@ -62,11 +81,12 @@ import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
 import MessageList from '../components/messages/MessageList.vue';
 import TextEditor from '../components/TextEditor.vue';
 import { useSocket } from '../services/socketService';
+import AddChannelUsersModal from '../components/modals/AddChannelUsersModal.vue';
 const store = useStore();
 const {
   joinChannel,
   leaveChannel,
-  sendRealtimeMessage,
+  sendChannelMessage,
   sendConversationMessage,
   connect,
   activateBot,
@@ -284,7 +304,7 @@ const sendMessage = async (messageData) => {
         type: 'channel',
         attachments: messageData.attachments || []
       });
-      sendRealtimeMessage(messageResponse);
+      sendChannelMessage(messageResponse);
     } else if (route.name === 'bot-conversation') {
       // Set loading state
       await store.dispatch('chatbot/setLoading', true);
@@ -439,6 +459,8 @@ const messages = computed(() => {
   }
   return [];
 });
+
+const showAddUsersModal = ref(false);
 </script>
 
 <style scoped>
@@ -467,7 +489,8 @@ const messages = computed(() => {
 .channel-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .channel-name {
@@ -617,6 +640,47 @@ const messages = computed(() => {
       padding-left: max(12px, env(safe-area-inset-left));
       padding-right: max(12px, env(safe-area-inset-right));
     }
+  }
+}
+
+.channel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid #4B4B4B;
+  border-radius: 4px;
+  color: #D1D2D3;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: #2C2D30;
+  border-color: #6B6B6B;
+  color: #FFFFFF;
+}
+
+.action-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 640px) {
+  .action-button span {
+    display: none;
+  }
+  
+  .action-button {
+    padding: 6px;
   }
 }
 </style> 

@@ -1,3 +1,5 @@
+import { api } from '@/services/api';
+
 const state = {
   channels: [],
   currentChannel: null,
@@ -57,7 +59,7 @@ const actions = {
       commit('SET_CHANNELS', channels);
       return channels;
     } catch (error) {
-      dispatch('showToastError', error.message);
+      dispatch('showToastError', error.message, { root: true });
       commit('SET_ERROR', error.message);
       throw error;
     } finally {
@@ -82,13 +84,31 @@ const actions = {
       }
 
       const channel = await response.json();
-
-      // Set as current channel
       commit('SET_CURRENT_CHANNEL', channel);
-
+      dispatch('showToastSuccess', 'Channel created successfully', { root: true });
       return channel;
     } catch (error) {
-      dispatch('showToastError', error.message);
+      dispatch('showToastError', error.message, { root: true });
+      commit('SET_ERROR', error.message);
+      throw error;
+    } finally {
+      commit('SET_LOADING', false);
+    }
+  },
+
+  async addUsersToChannel({ commit, dispatch, rootState }, { channelId, userIds }) {
+    commit('SET_LOADING', true);
+    try {
+      const response = await api.put(`/channels/${channelId}/users`, { userIds });
+      if (!response.status === 200) {
+        throw new Error('Failed to add users to channel');
+      }
+      const updatedChannel = response.data;
+      commit('UPDATE_CHANNEL', updatedChannel);
+      dispatch('showToastSuccess', 'Users added to channel successfully', { root: true });
+      return updatedChannel;
+    } catch (error) {
+      dispatch('showToastError', error.message, { root: true });
       commit('SET_ERROR', error.message);
       throw error;
     } finally {
