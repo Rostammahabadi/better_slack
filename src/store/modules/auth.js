@@ -1,10 +1,11 @@
 const state = {
   user: JSON.parse(localStorage.getItem('auth_user')),
-  token: localStorage.getItem('auth_token'),
+  token: null,
   tokenExpiry: localStorage.getItem('token_expiry'),
   loading: false,
   error: null,
-  defaultWorkspace: JSON.parse(localStorage.getItem('default_workspace'))
+  defaultWorkspace: JSON.parse(localStorage.getItem('default_workspace')),
+  status: 'active',
 };
 
 const mutations = {
@@ -16,10 +17,14 @@ const mutations = {
       localStorage.removeItem('auth_user');
     }
   },
+  SET_STATUS(state, status) {
+    state.status = status;
+    localStorage.setItem('user_status', status);
+  },
   SET_TOKEN(state, { token, expiresIn }) {
     state.token = token;
     if (token) {
-      localStorage.setItem('auth_token', token);
+      state.token = token;
       // Set token expiry if provided
       if (expiresIn) {
         const expiry = Date.now() + (expiresIn * 1000);
@@ -27,8 +32,7 @@ const mutations = {
         localStorage.setItem('token_expiry', expiry.toString());
       }
     } else {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('token_expiry');
+      state.token = null;
       state.tokenExpiry = null;
     }
   },
@@ -52,7 +56,6 @@ const mutations = {
     state.tokenExpiry = null;
     state.error = null;
     state.defaultWorkspace = null;
-    localStorage.removeItem('auth_token');
     localStorage.removeItem('token_expiry');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('default_workspace');
@@ -94,6 +97,24 @@ const actions = {
       throw error;
     } finally {
       commit('SET_LOADING', false);
+    }
+  },
+
+  async updateStatus({ commit, state }, status) {
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/users/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${state.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      });
+  
+      commit('SET_STATUS', status);
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      throw error;
     }
   },
 
@@ -158,7 +179,8 @@ const getters = {
   isLoading: state => state.loading,
   error: state => state.error,
   defaultWorkspace: state => state.defaultWorkspace,
-  tokenExpiry: state => state.tokenExpiry
+  tokenExpiry: state => state.tokenExpiry,
+  userStatus: state => state.status
 };
 
 export default {

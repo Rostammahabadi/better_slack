@@ -89,13 +89,11 @@ const email = ref('');
 
 onMounted(async () => {
   try {
-    isLoading.value = true;
-    
-    // Check if we have a stored token
-    const storedToken = localStorage.getItem('auth_token');
+    // Only show loading if we're checking auth
     const isAuthenticated = await auth0.isAuthenticated();
-    
-    if (isAuthenticated || storedToken) {
+    if (isAuthenticated) {
+      isLoading.value = true;
+      
       try {
         // Try to get a new token silently
         const token = await auth0.getTokenSilently({
@@ -119,18 +117,6 @@ onMounted(async () => {
         }
       } catch (error) {
         console.error('Token refresh error:', error);
-        // If we have a stored token, try to use it
-        if (storedToken) {
-          await store.dispatch('auth/initializeAuth', { 
-            auth0, 
-            token: storedToken 
-          });
-          const workspace = store.getters['auth/defaultWorkspace'];
-          if (workspace?._id) {
-            router.replace(`/workspaces/${workspace._id}`);
-            return;
-          }
-        }
       }
     }
   } catch (err) {

@@ -60,8 +60,24 @@ const router = createRouter({
   ]
 })
 
+// Add a flag to track auth initialization
+let authInitialized = false;
+
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
+  // Wait for auth to initialize on first navigation
+  if (!authInitialized && to.matched.some(record => record.meta.requiresAuth)) {
+    try {
+      // Wait a bit for auth initialization
+      await new Promise(resolve => setTimeout(resolve, 100));
+      authInitialized = true;
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+      next('/login');
+      return;
+    }
+  }
+
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!store.getters['auth/isAuthenticated']) {
       next('/login');

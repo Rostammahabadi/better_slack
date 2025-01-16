@@ -49,9 +49,8 @@ const initAuth0 = async () => {
 
     // For all other routes, check authentication
     const isAuthenticated = await auth0.isAuthenticated();
-    const storedToken = localStorage.getItem('auth_token');
     
-    if (isAuthenticated || storedToken) {
+    if (isAuthenticated) {
       try {
         // Try to get a new token silently
         const token = await auth0.getTokenSilently({
@@ -72,18 +71,10 @@ const initAuth0 = async () => {
         // Mount the app
         app.mount('#app');
       } catch (error) {
+        dispatch('showToastError', "There was an error try again later");
         console.error('Token refresh error:', error);
         // Only redirect to login if we can't refresh the token
-        if (!storedToken) {
-          window.location.pathname = '/login';
-        } else {
-          // If we have a stored token, try to use it
-          await store.dispatch('auth/initializeAuth', { 
-            auth0, 
-            token: storedToken 
-          });
-          app.mount('#app');
-        }
+        window.location.pathname = '/login';
       }
     } else {
       // If not authenticated and not on login/callback, redirect to login
@@ -92,27 +83,11 @@ const initAuth0 = async () => {
   } catch (error) {
     console.error('Auth check error:', error);
     // On error, check if we have a stored token before redirecting
-    const storedToken = localStorage.getItem('auth_token');
-    if (storedToken) {
-      await store.dispatch('auth/initializeAuth', { 
-        auth0, 
-        token: storedToken 
-      });
-      app.mount('#app');
-    } else {
-      window.location.pathname = '/login';
-    }
+    window.location.pathname = '/login';
   }
 };
 
 // Initialize auth
 initAuth0().catch(e => {
-  console.error('Failed to initialize auth:', e);
-  // Check stored token before redirecting
-  const storedToken = localStorage.getItem('auth_token');
-  if (storedToken) {
-    app.mount('#app');
-  } else {
-    window.location.pathname = '/login';
-  }
+  window.location.pathname = '/login';
 });
