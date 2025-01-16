@@ -83,6 +83,7 @@ const actions = {
       }
       commit('setChannelPagination', { channelId, nextCursor, hasMore });
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
     } finally {
       commit('setLoading', false);
@@ -97,6 +98,7 @@ const actions = {
       if (error.response?.status === 409) {
         commit('setError', 'Reaction already exists');
       } else {
+        dispatch('showToastError', error.message);
         commit('setError', error.message);
       }
       throw error;
@@ -108,6 +110,7 @@ const actions = {
       const response = await api.delete(`/messages/${messageId}/reactions/${reactionId}`);
       return response.data;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
       throw error;
     }
@@ -128,6 +131,7 @@ const actions = {
       }
       commit('setConversationPagination', { conversationId, nextCursor, hasMore });
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
     } finally {
       commit('setLoading', false);
@@ -139,6 +143,7 @@ const actions = {
       const response = await api.post('/chatbot/messages', message);
       return response.data;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
       throw error;
     }

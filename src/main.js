@@ -6,6 +6,8 @@ import App from './App.vue'
 import router from './router/index.js'
 import store from './store'
 import { useSocket } from './services/socketService';
+import Toast from 'vue-toastification';
+import 'vue-toastification/dist/index.css';
 
 const app = createApp(App)
 const { connect } = useSocket(store);
@@ -29,6 +31,7 @@ const initAuth0 = async () => {
   // First use store and router
   app.use(store)
   app.use(router)
+  app.use(Toast);
   
   try {
     // Check if we're in the callback page

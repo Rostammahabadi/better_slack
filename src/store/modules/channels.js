@@ -5,27 +5,30 @@ const state = {
   error: null,
 };
 
+function sortedChannels(channels) {
+  return channels.sort((a, b) => a.name.localeCompare(b.name));
+}
 const mutations = {
   SET_CHANNELS(state, channels) {
-    state.channels = channels;
+    state.channels = sortedChannels(channels);
   },
   SET_CURRENT_CHANNEL(state, channel) {
     state.currentChannel = channel;
   },
   ADD_CHANNEL(state, channel) {
     state.channels.push(channel);
-    state.channels = state.channels;
+    state.channels = sortedChannels(state.channels);
   },
   UPDATE_CHANNEL(state, updatedChannel) {
     const index = state.channels.findIndex(ch => ch._id === updatedChannel._id);
     if (index !== -1) {
       state.channels.splice(index, 1, updatedChannel);
-      state.channels = state.channels;
+      state.channels = sortedChannels(state.channels);
     }
   },
   DELETE_CHANNEL(state, channelId) {
     state.channels = state.channels.filter(ch => ch._id !== channelId);
-    // No need to sort after deletion
+    state.channels = sortedChannels(state.channels);
   },
   SET_LOADING(state, loading) {
     state.loading = loading;
@@ -36,7 +39,7 @@ const mutations = {
 };
 
 const actions = {
-  async fetchChannels({ commit }, { workspaceId, token }) {
+  async fetchChannels({ commit, dispatch }, { workspaceId, token }) {
     commit('SET_LOADING', true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces/${workspaceId}/channels`, {
@@ -54,6 +57,7 @@ const actions = {
       commit('SET_CHANNELS', channels);
       return channels;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('SET_ERROR', error.message);
       throw error;
     } finally {
@@ -84,6 +88,7 @@ const actions = {
 
       return channel;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('SET_ERROR', error.message);
       throw error;
     } finally {
@@ -103,12 +108,9 @@ const getters = {
   // Return channels in alphabetical order
   channels: state => state.channels,
   currentChannel: state => state.currentChannel,
-  isLoading: state => state.loading,
-  error: state => state.error,
-  getChannelById: state => id => state.channels.find(channel => channel.id === id),
-  sortedChannels: state => {
-    return [...state.channels].sort((a, b) => a.name.localeCompare(b.name));
-  },
+  getChannelById: state => id => state.channels.find(channel => channel._id === id),
+  sortedChannels: state => [...state.channels].sort((a, b) => a.name.localeCompare(b.name)),
+  getIsLoading: state => state.loading
 };
 
 export default {

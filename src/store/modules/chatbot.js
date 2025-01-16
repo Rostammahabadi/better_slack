@@ -67,6 +67,7 @@ const actions = {
       
       return true;
     } catch (error) {
+      dispatch('showToastError', error.message);
       console.error('Failed to fetch bot messages:', error);
       return false;
     } finally {

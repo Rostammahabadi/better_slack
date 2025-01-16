@@ -25,6 +25,7 @@ const actions = {
       const response = await api.get('/conversations');
       commit('setConversations', response.data);
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.response?.data?.message || 'Failed to fetch conversations');
     } finally {
       commit('setLoading', false);
@@ -38,6 +39,7 @@ const actions = {
       commit('setCurrentConversation', response.data);
       return response.data;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
       throw error;
     } finally {
@@ -52,6 +54,7 @@ const actions = {
       commit('addConversation', response.data);
       return response.data;
     } catch (error) {
+      dispatch('showToastError', error.message);
       commit('setError', error.message);
       throw error;
     } finally {

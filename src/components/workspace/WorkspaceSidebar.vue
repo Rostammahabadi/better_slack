@@ -24,15 +24,26 @@
         </div>
         <div class="section-items">
           <div 
-            v-for="channel in storeData.channels" 
+            v-for="channel in channels" 
             :key="channel._id"
             class="section-item"
             :class="{ active: storeData.currentChannel?._id === channel._id }"
             @click="selectChannel(channel)"
-            @contextmenu.prevent="showContextMenu($event, channel)"
+            @contextmenu.prevent="isChannelAdmin(channel) && showContextMenu($event, channel)"
           >
             <span class="icon">{{ channel.type === 'private' ? '🔒' : '#' }}</span>
-            <span>{{ channel.name }}</span>
+            <template v-if="editingChannel?._id === channel._id">
+              <input
+                ref="channelNameInput"
+                v-model="editingChannel.name"
+                class="channel-name-input"
+                @keyup.enter="saveChannelName"
+                @keyup.esc="cancelEditing"
+                @blur="saveChannelName"
+                :placeholder="channel.name"
+              />
+            </template>
+            <span v-else>{{ channel.name }}</span>
           </div>
         </div>
       </div>
@@ -44,57 +55,67 @@
           <button class="add-button" @click="showNewMessageModal = true">+</button>
         </div>
         <div class="section-items">
-          <!-- Pinned Chatbot -->
-          <div 
-            class="section-item chatbot-item"
-            :class="{ active: route.name === 'bot-conversation' }"
-            @click="activateChatbot"
-          >
-            <div class="conversation-avatar">
-              <img 
-                src="/images/bot.png"
-                alt="Chatbot"
-                class="user-avatar"
-              />
-            </div>
-            <div class="conversation-info">
-              <span>Chatbot</span>
-              <span class="bot-status">AI Assistant</span>
-            </div>
+          <!-- Loading State -->
+          <div v-if="isLoadingConversations" class="loading-state">
+            Loading conversations...
           </div>
-
-          <!-- Conversation Participants -->
-          <div 
-            v-for="conversation in filteredParticipants" 
-            :key="conversation._id"
-            class="section-item"
-            :class="{ active: route.params.conversationId === conversation._id }"
-            @click="selectConversation(conversation)"
-          >
-            <div class="conversation-avatar">
-              <img 
-                v-if="conversation.displayParticipants[0]?.avatarUrl"
-                :src="conversation.displayParticipants[0].avatarUrl" 
-                :alt="conversation.displayParticipants[0].displayName"
-                class="user-avatar"
-              />
-              <div v-else class="user-avatar-fallback">
-                {{ getInitials(conversation.displayParticipants[0]?.displayName) }}
+          
+          <template v-else>
+            <!-- Pinned Chatbot -->
+            <div 
+              class="section-item chatbot-item"
+              :class="{ active: route.name === 'bot-conversation' }"
+              @click="activateChatbot"
+            >
+              <div class="conversation-avatar">
+                <img 
+                  src="/images/bot.png"
+                  alt="Chatbot"
+                  class="user-avatar"
+                />
+              </div>
+              <div class="conversation-info">
+                <span>Chatbot</span>
+                <span class="bot-status">AI Assistant</span>
               </div>
             </div>
-            
-            <div class="conversation-info">
-              <span v-if="conversation.displayParticipants.length === 1">
-                {{ conversation.displayParticipants[0].displayName }}
-              </span>
-              <span v-else>
-                {{ conversation.displayParticipants[0].displayName }}
-                <span class="additional-participants">
-                  +{{ conversation.displayParticipants.length - 1 }} others
+
+            <!-- Conversation Participants -->
+            <div 
+              v-for="conversation in filteredParticipants" 
+              :key="conversation._id"
+              class="section-item"
+              :class="{ active: route.params.conversationId === conversation._id }"
+              @click="selectConversation(conversation)"
+            >
+              <div class="conversation-avatar">
+                <img 
+                  v-if="conversation.displayParticipants[0]?.avatarUrl"
+                  :src="conversation.displayParticipants[0].avatarUrl" 
+                  :alt="conversation.displayParticipants[0].displayName"
+                  class="user-avatar"
+                />
+                <div v-else class="user-avatar-fallback">
+                  {{ getInitials(conversation.displayParticipants[0]?.displayName) }}
+                </div>
+              </div>
+              
+              <div class="conversation-info">
+                <span v-if="conversation.displayParticipants.length === 1">
+                  {{ conversation.displayParticipants[0].displayName }}
                 </span>
-              </span>
+                <span v-else>
+                  {{ conversation.displayParticipants[0].displayName }}
+                  <span class="additional-participants">
+                    +{{ conversation.displayParticipants.length - 1 }} others
+                  </span>
+                </span>
+                <span v-if="conversation.lastMessage" class="last-message">
+                  {{ truncateMessage(conversation.lastMessage.content) }}
+                </span>
+              </div>
             </div>
-          </div>
+          </template>
 
           <button class="invite-button" @click="showInviteModal = true">
             <i class="fas fa-user-plus"></i> Invite People to Workspace
@@ -102,6 +123,25 @@
         </div>
       </div>
     </template>
+
+    <!-- Channel Context Menu -->
+    <div 
+      v-if="contextMenu.show" 
+      class="context-menu"
+      :style="{ 
+        top: `${contextMenu.y}px`, 
+        left: `${contextMenu.x}px` 
+      }"
+    >
+      <div class="context-menu-item" @click="handleRenameChannel">
+        <i class="fas fa-edit"></i>
+        Rename Channel
+      </div>
+      <div class="context-menu-item delete" @click="handleDeleteChannel">
+        <i class="fas fa-trash"></i>
+        Delete Channel
+      </div>
+    </div>
 
     <!-- Create Channel Modal -->
     <CreateChannelModal 
@@ -126,13 +166,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import CreateChannelModal from '../modals/CreateChannelModal.vue';
 import InviteUsersModal from '../modals/InviteUsersModal.vue';
 import NewDirectMessageModal from '../modals/NewDirectMessageModal.vue';
-import { useSocket } from '@/services/socketService';
 
 const store = useStore();
 const router = useRouter();
@@ -146,13 +185,22 @@ const contextMenu = ref({
   y: 0,
   channel: null
 });
-
-const socket = useSocket(store);
+const editingChannel = ref(null);
 
 const conversations = computed(() => store.getters['conversations/getConversations']);
 
+// Update channels to be a computed property
+const channels = computed(() => {
+  const sortedChannels = store.getters['channels/sortedChannels'];
+  return sortedChannels || [];
+});
+
 // Add loading state
-const isLoading = ref(true);
+const isLoading = computed(() => {
+  return store.getters['channels/getIsLoading'] || 
+         store.getters['conversations/getIsLoading'] ||
+         !storeData.value.workspace;
+});
 
 // Handle clicking outside context menu to close it
 const closeContextMenu = (e) => {
@@ -193,9 +241,8 @@ const filteredParticipants = computed(() => {
 
 // Single computed property for store data to reduce reactivity triggers
 const storeData = computed(() => ({
-  channels: store.getters['channels/sortedChannels'] || [],
   currentChannel: store.getters['channels/currentChannel'],
-  sentInvites: store.getters['invites/sentInvites'] || [],
+  sentInvites: store.getters['invites/sentInvites'],
   currentUser: store.getters['auth/currentUser'],
   workspace: store.getters['workspaces/currentWorkspace']
 }));
@@ -204,7 +251,8 @@ const storeData = computed(() => ({
 watch(
   () => storeData.value.workspace,
   (newWorkspace) => {
-    if (newWorkspace) {
+    if (newWorkspace && !isLoading.value) {
+      // Only update loading state if we're not waiting for other data
       isLoading.value = false;
     }
   },
@@ -263,6 +311,59 @@ const selectConversation = (conversation) => {
     }
   });
 };
+
+// Add new computed property for conversations loading state
+const isLoadingConversations = computed(() => store.getters['conversations/getIsLoading']);
+
+// Add helper function to truncate messages
+const truncateMessage = (message) => {
+  if (!message) return '';
+  return message.length > 30 ? message.substring(0, 27) + '...' : message;
+};
+
+const handleRenameChannel = () => {
+  // Close the context menu
+  contextMenu.value.show = false;
+  // Set the channel being edited
+  editingChannel.value = { ...contextMenu.value.channel };
+  // Focus the input on the next tick after the template updates
+  nextTick(() => {
+    const input = document.querySelector('.channel-name-input');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  });
+};
+
+const saveChannelName = async () => {
+  if (!editingChannel.value) return;
+  
+  // Only save if the name has changed and is not empty
+  if (editingChannel.value.name && 
+      editingChannel.value.name !== contextMenu.value?.channel?.name) {
+    console.log('Save new channel name:', editingChannel.value.name);
+    // TODO: Implement actual channel rename API call
+  }
+  
+  editingChannel.value = null;
+};
+
+const cancelEditing = () => {
+  editingChannel.value = null;
+};
+
+const handleDeleteChannel = () => {
+  // Close the context menu
+  contextMenu.value.show = false;
+  // TODO: Implement delete functionality
+  console.log('Delete channel:', contextMenu.value.channel?.name);
+};
+
+const isChannelAdmin = (channel) => {
+  const currentUser = storeData.value.currentUser;
+  return channel.createdBy === currentUser?._id;
+};
 </script>
 
 <style scoped>
@@ -292,8 +393,9 @@ const selectConversation = (conversation) => {
 }
 
 .loading-state {
-  padding: 16px;
+  padding: 12px 16px;
   color: #ABABAD;
+  font-size: 14px;
   text-align: center;
 }
 
@@ -412,12 +514,12 @@ const selectConversation = (conversation) => {
 
 .bot-status {
   font-size: 12px;
-  color: #ABABAD;
+  color: #9A9A9A;
 }
 
 .additional-participants {
+  color: #9A9A9A;
   font-size: 12px;
-  color: #ABABAD;
   margin-left: 4px;
 }
 
@@ -439,6 +541,15 @@ const selectConversation = (conversation) => {
 
 .invite-button:hover {
   background-color: #27242C;
+}
+
+.last-message {
+  font-size: 12px;
+  color: #9A9A9A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
 }
 
 /* Mobile Styles */
@@ -525,5 +636,63 @@ const selectConversation = (conversation) => {
   .invite-button:active {
     background-color: #27242C;
   }
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #1A1D21;
+  border: 1px solid #4B4B4B;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.context-menu-item {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #D1D2D3;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+  background-color: #27242C;
+}
+
+.context-menu-item.delete {
+  color: #E01E5A;
+}
+
+.context-menu-item.delete:hover {
+  background-color: rgba(224, 30, 90, 0.1);
+}
+
+.context-menu-item i {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+
+.channel-name-input {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  outline: none;
+  border-radius: 4px;
+}
+
+.channel-name-input:focus {
+  background-color: #27242C;
+  padding: 2px 4px;
+  margin: -2px -4px;
 }
 </style> 

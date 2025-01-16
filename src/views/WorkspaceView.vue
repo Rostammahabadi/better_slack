@@ -118,18 +118,21 @@ onMounted(async () => {
       token: token.value
     });
 
+    // Fetch conversations for the workspace
+    await store.dispatch('conversations/fetchConversations');
+
     // If there's a channelId in the route, set it as current and fetch messages
     if (route.params.channelId) {
       const channel = store.getters['channels/getChannelById'](route.params.channelId);
       if (channel) {
         await store.dispatch('messages/fetchChannelMessages', {
-          channelId: channel.id,
+          channelId: channel._id,
           token: token.value
         });
         store.dispatch('channels/setCurrentChannel', {
           channel: store.getters['channels/getChannelById'](route.params.channelId),
         });
-        joinChannel(channel.id, currentUser.value);
+        joinChannel(channel._id, currentUser.value);
       }
     } else if (route.name === 'bot-conversation') {
       // Clear current channel and conversation
