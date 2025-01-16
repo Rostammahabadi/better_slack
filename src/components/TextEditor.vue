@@ -55,7 +55,7 @@
     <div v-if="showMentionDropdown" class="mention-dropdown">
       <div class="mention-list">
         <div 
-          v-for="user in channelUsers" 
+          v-for="user in filteredChannelUsers" 
           :key="user._id"
           class="mention-item"
           :class="{ 'selected': selectedMentionIndex === user._id }"
@@ -77,8 +77,15 @@
             <div class="display-name">{{ user.displayName }}</div>
             <div class="username">{{ user.username }}</div>
           </div>
-          <div class="user-status" v-if="user.isOnline">
-            <div class="status-indicator"></div>
+          <div class="user-status">
+            <div 
+              class="status-indicator"
+              :class="{
+                'online': user.isOnline && !user.isAway,
+                'away': user.isAway,
+                'offline': !user.isOnline && !user.isAway
+              }"
+            ></div>
           </div>
         </div>
       </div>
@@ -89,9 +96,10 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
+import { useSocket } from '@/services/socketService';
 import { 
   Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, 
-  Code, Quote, Smile, AtSign, Image, Mic, PenTool
+  Code, Quote
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -107,27 +115,34 @@ const props = defineProps({
   }
 });
 
+// ========== VUEX & SOCKET SETUP ==========
 const store = useStore();
+const { sendChannelMention, sendConversationMention } = useSocket(store);
+
+// ========== COMPONENT STATE ==========
 const messageText = ref(props.message?.content || '');
 const attachments = ref(props.message?.attachments || []);
 const replyToThread = ref(props.message?.threadId || null);
 
 const topRowIcons = [Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, Code, Quote];
-
 const emit = defineEmits(['send-message', 'edit-message', 'cancel']);
-
+const mentionedUsers = ref(new Set());
 const showMentionDropdown = ref(false);
 const selectedMentionIndex = ref(null);
 const mentionStartIndex = ref(-1);
+const mentionSearchTerm = ref("");
 
+// ========== CHANNEL USERS (FOR MENTIONS) ==========
 const channelUsers = computed(() => {
   const users = store.getters['channels/currentChannelUsers'] || [];
   return users.map(user => ({
     ...user,
-    isOnline: store.getters['users/isUserOnline'](user._id)
+    isOnline: store.getters['users/isUserOnline'](user._id),
+    isAway: store.getters['users/isUserAway'](user._id)
   }));
 });
 
+// ========== UTILS ==========
 const getInitials = (name) => {
   if (!name) return '?';
   return name
@@ -138,12 +153,26 @@ const getInitials = (name) => {
     .slice(0, 2);
 };
 
+// ========== CORE ACTIONS ==========
 const handleCancel = () => {
   messageText.value = '';
   attachments.value = [];
   replyToThread.value = null;
   emit('cancel');
 };
+
+const filteredChannelUsers = computed(() => {
+  // Remove leading '@' if present
+  const rawTerm = mentionSearchTerm.value.replace(/^@/, '');
+  // If empty, return all users
+  if (!rawTerm) return channelUsers.value;
+
+  const lowerTerm = rawTerm.toLowerCase();
+  return channelUsers.value.filter(user =>
+    user.displayName.toLowerCase().includes(lowerTerm) ||
+    user.username.toLowerCase().includes(lowerTerm)
+  );
+});
 
 const handleSend = () => {
   if (!messageText.value.trim()) return;
@@ -158,16 +187,43 @@ const handleSend = () => {
     }))
   };
 
+  // Mention logic
+  if (mentionedUsers.value.size > 0) {
+    const channelId = store.getters['channels/currentChannel']?._id;
+    const conversationId = store.getters['conversations/currentConversation']?._id;
+    const currentUserId = store.getters['auth/currentUser']?._id;
+
+    // Channel mention
+    if (channelId) {
+      mentionedUsers.value.forEach(userId => {
+        sendChannelMention({
+          channelId,
+          mentionedUserId: userId,
+          message: messageText.value
+        });
+      });
+    }
+    // Conversation mention
+    else if (conversationId) {
+      // Currently we just send one mention event for all mentions in conversation
+      sendConversationMention({
+        conversationId,
+        message: messageText.value,
+        senderId: currentUserId
+      });
+    }
+  }
+
+  // Distinguish between editing vs sending
   if (props.message) {
-    // If we have a message prop, we're editing
     emit('edit-message', messageData);
   } else {
-    // If no message prop, we're sending a new message
     emit('send-message', messageData);
-    // Only reset form for new messages
+    // Reset
     messageText.value = '';
     attachments.value = [];
     replyToThread.value = null;
+    mentionedUsers.value.clear();
   }
 };
 
@@ -196,20 +252,11 @@ const handleDrop = async (event) => {
 
 const handleFileUpload = async (file) => {
   try {
-    // Here you would typically upload the file to your server/storage
-    // and get back a URL. This is a placeholder for that logic.
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // TODO: Implement file upload endpoint
-    // const response = await fetch('/api/upload', {
-    //   method: 'POST',
-    //   body: formData
-    // });
+    // TODO: Upload to your server
+    // const response = await fetch('/api/upload', { method: 'POST', body: formData });
     // const { url } = await response.json();
-
     attachments.value.push({
-      url: URL.createObjectURL(file), // Temporary URL for preview
+      url: URL.createObjectURL(file), // Temporary preview
       type: file.type,
       name: file.name
     });
@@ -218,16 +265,17 @@ const handleFileUpload = async (file) => {
   }
 };
 
+// ========== TEXT FORMATTING & SHORTCUTS ==========
 const handleFormatClick = (formatType) => {
   const textarea = document.querySelector('.text-input');
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const selectedText = messageText.value.substring(start, end);
-  
+
   let formattedText = '';
   let cursorOffset = 0;
 
-  switch(formatType) {
+  switch (formatType) {
     case Bold:
       formattedText = `**${selectedText}**`;
       cursorOffset = 2;
@@ -267,29 +315,24 @@ const handleFormatClick = (formatType) => {
       break;
   }
 
-  // Insert the formatted text
   messageText.value = 
     messageText.value.substring(0, start) +
     formattedText +
     messageText.value.substring(end);
 
-  // Reset cursor position
   nextTick(() => {
     textarea.focus();
     if (start === end) {
-      // No selection, place cursor inside the formatting marks
       textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
     } else {
-      // Selection exists, place cursor after the formatted text
       textarea.setSelectionRange(start + formattedText.length, start + formattedText.length);
     }
   });
 };
 
-// Add keyboard shortcuts
 const handleKeyDown = (e) => {
   if (e.metaKey || e.ctrlKey) {
-    switch(e.key) {
+    switch (e.key) {
       case 'b':
         e.preventDefault();
         handleFormatClick(Bold);
@@ -328,45 +371,25 @@ const getFormatTooltip = (icon) => {
   return tooltips[icon] || '';
 };
 
-const handleActionClick = async (actionType) => {
-  switch(actionType) {
-    case Image:
-      // Open file picker
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async (e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          await handleFileUpload(file);
-        }
-      };
-      input.click();
-      break;
-    case AtSign:
-      messageText.value += '@';
-      break;
-    case Smile:
-      // TODO: Implement emoji picker
-      break;
-  }
-};
-
+// ========== MENTIONS ==========
 const handleInput = (event) => {
   const text = messageText.value;
   const cursorPosition = event.target.selectionStart;
 
-  // Check for @ symbol
+  // Check for '@' symbol
   if (text[cursorPosition - 1] === '@') {
     showMentionDropdown.value = true;
+    const afterAt = text.slice(mentionStartIndex.value + 1, cursorPosition);
+    mentionSearchTerm.value = afterAt;
     mentionStartIndex.value = cursorPosition - 1;
-    selectedMentionIndex.value = channelUsers.value[0]?._id;
+    selectedMentionIndex.value = channelUsers.value[0]?._id; // default selection
   } else if (showMentionDropdown.value) {
-    // Close dropdown if we're not in a mention context
-    const lastAtIndex = text.lastIndexOf('@', cursorPosition);
-    const textAfterAt = text.slice(lastAtIndex + 1, cursorPosition);
-    
-    if (lastAtIndex === -1 || cursorPosition - lastAtIndex > 30 || text[lastAtIndex - 1] === '@') {
+    // Possibly close mention dropdown
+    const afterAt = text.slice(mentionStartIndex.value + 1, cursorPosition);
+    mentionSearchTerm.value = afterAt;
+
+    // Optionally close dropdown if too long or empty
+    if (!afterAt.length || afterAt.length > 25) {
       showMentionDropdown.value = false;
     }
   }
@@ -375,11 +398,16 @@ const handleInput = (event) => {
 const selectMention = (user) => {
   const text = messageText.value;
   const beforeMention = text.substring(0, mentionStartIndex.value);
+  // Remove the partial mention text (like '@jo')
   const afterMention = text.substring(mentionStartIndex.value).replace(/^@\w*/, '');
-  
+
+  // Replace with full mention
   messageText.value = `${beforeMention}@${user.username}${afterMention}`;
-  
-  // Place cursor after the mention
+
+  // **IMPORTANT**: Track the mentioned user
+  mentionedUsers.value.add(user._id);
+
+  // Move cursor
   nextTick(() => {
     const textarea = document.querySelector('.text-input');
     const cursorPosition = beforeMention.length + user.username.length + 1;
@@ -387,37 +415,36 @@ const selectMention = (user) => {
     textarea.selectionEnd = cursorPosition;
     textarea.focus();
   });
-  
+
   showMentionDropdown.value = false;
 };
 
-// Add click outside handler
+// ========== CLICK OUTSIDE / ESCAPE ==========
 const handleClickOutside = (event) => {
   const dropdown = document.querySelector('.mention-dropdown');
   const textInput = document.querySelector('.text-input');
-  
-  if (showMentionDropdown.value && 
-      dropdown && 
-      !dropdown.contains(event.target) && 
-      !textInput.contains(event.target)) {
+  if (
+    showMentionDropdown.value &&
+    dropdown &&
+    !dropdown.contains(event.target) &&
+    !textInput.contains(event.target)
+  ) {
     showMentionDropdown.value = false;
   }
 };
 
-// Add event listeners on mount
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-  document.addEventListener('keydown', handleKeydownGlobal);
-});
-
-// Handle global keydown events
 const handleKeydownGlobal = (e) => {
   if (e.key === 'Escape' && showMentionDropdown.value) {
     showMentionDropdown.value = false;
   }
 };
 
-// Clean up event listeners
+// ========== LIFECYCLE HOOKS ==========
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('keydown', handleKeydownGlobal);
+});
+
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   document.removeEventListener('keydown', handleKeydownGlobal);
@@ -567,11 +594,16 @@ onUnmounted(() => {
   padding: 8px 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  border-radius: 4px;
+  gap: 12px;
 }
 
-.mention-item:hover,
+.mention-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .mention-item.selected {
-  background-color: #2C2D30;
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .user-avatar {
@@ -606,17 +638,16 @@ onUnmounted(() => {
 }
 
 .display-name {
-  color: #D1D2D3;
-  font-size: 14px;
+  color: #FFFFFF;
   font-weight: 500;
-  margin-bottom: 2px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .username {
-  color: #9CA3AF;
+  color: #A3A6AA;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -633,7 +664,19 @@ onUnmounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #2EAC3E;
+  transition: background-color 0.2s ease;
+}
+
+.status-indicator.online {
+  background-color: #43B581;
+}
+
+.status-indicator.away {
+  background-color: #FAA61A;
+}
+
+.status-indicator.offline {
+  background-color: #747F8D;
 }
 
 /* Mobile responsiveness */

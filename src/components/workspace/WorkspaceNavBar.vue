@@ -89,7 +89,7 @@
             <img :src="userAvatar" alt="Profile" class="user-avatar" />
             <div class="user-details">
               <div class="user-name">{{ user?.name }}</div>
-              <div class="user-status">Active</div>
+              <div class="user-status" :class="{ away: isAway }">{{ isAway ? 'Away' : 'Active' }}</div>
             </div>
           </div>
 
@@ -104,7 +104,8 @@
           <!-- Set Presence -->
           <div class="menu-section">
             <button class="menu-button" @click="openSetAwayModal">
-              Set yourself as away
+              <span class="status-indicator" :class="{ away: isAway }"></span>
+              {{ isAway ? 'Set yourself as active' : 'Set yourself as away' }}
             </button>
           </div>
           <!-- Sign Out -->
@@ -182,7 +183,9 @@ const workspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const workspaces = computed(() => store.getters['workspaces/workspaces']);
 const currentWorkspace = computed(() => store.getters['workspaces/currentWorkspace']);
 const user = computed(() => store.getters['auth/currentUser']);
-const userAvatar = user.value.picture || user.value.avatarUrl;
+const userAvatar = computed(() => store.getters['auth/userAvatar']);
+
+const isAway = computed(() => store.getters['auth/isAway']);
 
 const emit = defineEmits(['toggle-sidebar']);
 
@@ -420,10 +423,6 @@ onUnmounted(() => {
     top: 10px;
   }
 
-  .icon-container {
-    width: 28px;
-    height: 28px;
-  }
 
   .workspace-icon .square-icon {
     width: 28px;
@@ -467,19 +466,7 @@ onUnmounted(() => {
   position: relative;
 }
 
-.nav-item:hover .icon-container {
-  background-color: #27242C;
-}
 
-.icon-container {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
-}
 
 .workspace-icon .square-icon {
   width: 36px;
@@ -603,6 +590,7 @@ onUnmounted(() => {
   cursor: pointer;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .menu-button:hover {
@@ -889,28 +877,62 @@ onUnmounted(() => {
   height: 36px;
 }
 
-.profile-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 4px;
-  object-fit: cover;
+
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #43B581;
+  transition: background-color 0.2s ease;
 }
 
-.status-emoji {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 20px;
-  height: 20px;
-  background-color: #2BAC76;  /* Changed to teal/green color */
-  border-radius: 50%;
+.status-indicator.away {
+  background-color: #FAA61A;
+}
+.icon-container {
+  position: relative; /* Important: make this the positioning context */
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  border: 2px solid #1A1D21;  /* Keeping dark border for contrast */
-  z-index: 1;
-  line-height: 1;  /* Added to ensure vertical centering */
-  padding: 2px;    /* Added to give the emoji some breathing room */
+  transition: background-color 0.2s;
+}
+
+/* Profile Image can remain as-is, or you can explicitly size it here. */
+.profile-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px; /* match container rounding if desired */
+  object-fit: cover;  /* optional, if you want consistent aspect ratio */
+}
+
+/* Position the emoji “above” the container, but not overlapping */
+.status-emoji {
+  position: absolute;
+  top: -10px;          /* Moves it above the top of the container */
+  left: 50%;          
+  transform: translateX(-50%); /* Centers it horizontally */
+
+  /* Make the badge smaller so it won’t cover the avatar */
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;  /* a circular badge this time */
+  background-color: #2BAC76;
+  border: 2px solid #1A1D21;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;     /* smaller font so emoji fits neatly */
+  line-height: 1;
+  z-index: 2;
+}
+
+/* Example hover background for the container */
+.nav-item:hover .icon-container {
+  background-color: #27242C;
 }
 </style> 

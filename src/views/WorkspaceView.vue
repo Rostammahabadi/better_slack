@@ -132,7 +132,8 @@ onMounted(async () => {
     await Promise.all([
       store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
       store.dispatch('channels/fetchChannels', { workspaceId, token }),
-      store.dispatch('conversations/fetchConversations')
+      store.dispatch('conversations/fetchConversations'),
+      store.dispatch('auth/fetchUser', token)
     ]);
 
     // Only connect socket after all data is loaded

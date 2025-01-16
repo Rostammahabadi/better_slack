@@ -425,6 +425,17 @@ export function useSocket(store) {
     socket.emit('bot:set_mode', { channelIds, conversationIds, enabled });
   };
 
+  // Add mention event emitters
+  const sendChannelMention = ({ channelId, mentionedUserId, message }) => {
+    if (!socket) return;
+    socket.emit('channel:mention', { channelId, mentionedUserId, message });
+  };
+
+  const sendConversationMention = ({ conversationId, message, senderId }) => {
+    if (!socket) return;
+    socket.emit('conversation:mention', { conversationId, message, senderId });
+  };
+
   return {
     isConnected,
     channelUsers,
@@ -457,5 +468,7 @@ export function useSocket(store) {
     sendChannelReaction,
     sendAddedUsersToChannel,
     setBotMode,
+    sendChannelMention,
+    sendConversationMention,
   };
 }

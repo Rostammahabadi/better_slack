@@ -139,7 +139,7 @@ const actions = {
   async updateStatus({ commit, state }, status) {
     const { text, emoji } = status;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/users/status`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${state.token}`,
@@ -147,7 +147,13 @@ const actions = {
         },
         body: JSON.stringify({ text, emoji })
       });
-  
+
+      if (!response.ok) {
+        dispatch('showToastError', 'Failed to update status', { root: true });
+        throw new Error('Failed to update status');
+      }
+      const user = await response.json();
+      commit('SET_USER', user);
       commit('SET_STATUS', status);
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -194,7 +200,7 @@ const actions = {
       }
 
       const user = await response.json();
-      commit('SET_USER', user);
+      commit('SET_USER', user.user);
       return user;
     } catch (error) {
       commit('SET_ERROR', error.message);
@@ -267,10 +273,11 @@ const getters = {
     }
     return true;
   },
-  currentUser: state => state.user?.user,
+  currentUser: state => state.user,
   token: state => state.token,
   isLoading: state => state.loading,
   error: state => state.error,
+  userAvatar: state => state.user?.picture || state.user?.avatarUrl,
   defaultWorkspace: state => state.defaultWorkspace,
   tokenExpiry: state => state.tokenExpiry,
   userStatus: state => state.status,
