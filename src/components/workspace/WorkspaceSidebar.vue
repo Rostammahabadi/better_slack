@@ -148,7 +148,6 @@ const contextMenu = ref({
 });
 
 const socket = useSocket(store);
-const { activateBot } = socket;
 
 const conversations = computed(() => store.getters['conversations/getConversations']);
 
@@ -163,7 +162,6 @@ const closeContextMenu = (e) => {
 };
 
 onMounted(() => {
-  store.dispatch('conversations/fetchConversations');
   document.addEventListener('click', closeContextMenu);
 });
 

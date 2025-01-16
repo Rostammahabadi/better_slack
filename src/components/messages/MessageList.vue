@@ -120,10 +120,11 @@ const router = useRouter();
 const {
   sendChannelReaction,
   sendConversationReaction,
-  sendReactionRemoved,
+  sendChannelReactionRemoved,
   sendEditMessage,
+  sendConversationReactionRemoved,
   sendConversationMessage,
-  sendRealtimeMessage,
+  sendChannelMessage,
   sendChannelMessageEdit,
   sendConversationMessageEdit,
   sendChannelThreadReply,
@@ -319,7 +320,7 @@ const handleSendMessage = async (messageData) => {
           attachments: messageData.attachments || [],
           type: 'channel'
         });
-        sendRealtimeMessage(messageResponse);
+        sendChannelMessage(messageResponse);
       }
     } else if (router.currentRoute.value.params.conversationId) {
       // Handle conversation message
@@ -388,7 +389,7 @@ const handleRemoveReaction = async (emoji, messageId) => {
   
   if (hoveredMessage.value) {
     const reaction = message.reactions.find(
-      r => r.user._id === currentUserId && r.emoji === emoji
+      r => r.user === currentUserId && r.emoji === emoji
     );
     
     if (router.currentRoute.value.params.channelId) {
@@ -399,7 +400,7 @@ const handleRemoveReaction = async (emoji, messageId) => {
         token, 
         currentChannel 
       });
-      sendReactionRemoved(message._id, reaction, currentChannel);
+      sendChannelReactionRemoved(message._id, reaction, currentChannel);
     } else if (router.currentRoute.value.params.conversationId) {
       const conversationId = router.currentRoute.value.params.conversationId;
       await store.dispatch('conversations/removeConversationReaction', { 
@@ -408,7 +409,7 @@ const handleRemoveReaction = async (emoji, messageId) => {
         token, 
         conversationId 
       });
-      sendReactionRemoved(message._id, reaction, conversationId);
+      sendConversationReactionRemoved(message._id, reaction, conversationId);
     }
   }
 };

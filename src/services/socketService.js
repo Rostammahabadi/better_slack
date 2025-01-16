@@ -200,14 +200,9 @@ export function useSocket(store) {
   };
 
   // Message actions
-  const sendRealtimeMessage = (message) => {
+  const sendChannelMessage = (message) => {
     if (!socket) return;
     socket.emit('channel:message', message);
-  };
-
-  const sendReaction = (messageId, reaction, channelId) => {
-    if (!socket) return;
-    socket.emit('channel:reaction', { messageId, reaction, channelId });
   };
 
   const sendConversationReaction = (messageId, reaction, conversationId) => {
@@ -215,7 +210,7 @@ export function useSocket(store) {
     socket.emit('conversation:reaction', { messageId, reaction, conversationId });
   };
 
-  const sendReactionRemoved = (messageId, reaction, channelId) => {
+  const sendChannelReactionRemoved = (messageId, reaction, channelId) => {
     if (!socket) return;
     socket.emit('channel:reaction_removed', { messageId, reaction, channelId });
   };
@@ -315,14 +310,13 @@ export function useSocket(store) {
     disconnect,
     joinChannel,
     leaveChannel,
-    sendRealtimeMessage,
+    sendChannelMessage,
     sendConversationMessage,
     sendConversationConnected,
     sendConversationLeft,
     sendConversationTyping,
-    sendReaction,
+    sendChannelReactionRemoved,
     sendConversationReaction,
-    sendReactionRemoved,
     sendConversationReactionRemoved,
     sendEditMessage,
     sendEditConversationMessage,
