@@ -24,6 +24,9 @@ const mutations = {
       localStorage.removeItem('auth_user');
     }
   },
+  SET_BOT_MODE(state, botMode) {
+    state.botMode = botMode;
+  },
   SET_STATUS(state, status) {
     state.status = status;
     localStorage.setItem('user_status', status);
@@ -200,6 +203,7 @@ const actions = {
       }
 
       const user = await response.json();
+      commit('SET_BOT_MODE', user.user.userPersonality.botMode);
       commit('SET_USER', user.user);
       return user;
     } catch (error) {

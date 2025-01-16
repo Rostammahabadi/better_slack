@@ -25,7 +25,8 @@ export function useSocket(store) {
         isBot: false,
         channels: store.getters['channels/channels'].map(channel => channel._id),
         conversations: store.getters['conversations/getConversations'].map(conv => conv._id),
-        userPersonality: JSON.stringify(store.getters['auth/userPersonality'])
+        userPersonality: JSON.stringify(store.getters['auth/userPersonality']),
+        botMode: store.getters['auth/botMode']
       }
     });
 
@@ -37,12 +38,14 @@ export function useSocket(store) {
       const channels = store.getters['channels/channels'].map(channel => channel._id);
       const conversations = store.getters['conversations/getConversations'].map(conv => conv._id);
       const userPersonality = store.getters['auth/userPersonality'];
+      const botMode = store.getters['auth/botMode'];
       socket.emit('client:init', {
         userId,
         isBot: false,
         channels,
         conversations,
-        userPersonality: JSON.stringify(userPersonality)
+        userPersonality: JSON.stringify(userPersonality),
+        botMode: JSON.stringify(botMode)
       });
     });
 
