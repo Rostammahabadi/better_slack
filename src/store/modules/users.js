@@ -31,6 +31,7 @@ const actions = {
       commit('SET_LOADING', true);
       const response = await api.get('/users');
       commit('SET_USERS', response.data);
+      return response.data;
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;

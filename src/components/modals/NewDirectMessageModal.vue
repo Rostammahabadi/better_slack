@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeMount } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
@@ -149,21 +149,17 @@ const activeIndex = ref(-1)
 const isLoading = ref(false)
 const isLoadingMore = ref(false)
 
-onMounted(async () => {
-  await fetchInitialUsers()
-})
-
-const fetchInitialUsers = async () => {
+onBeforeMount(async () => {
   try {
     isLoading.value = true
-    const response = await store.dispatch('users/fetchUsers', { workspaceId: store.state.workspaces.currentWorkspace._id })
-    users.value = response
+    const response = await store.dispatch('users/fetchUsers')
+    users.value = response.users
   } catch (error) {
     console.error('Failed to fetch users:', error)
   } finally {
     isLoading.value = false
   }
-}
+})
 
 const loadMoreUsers = async () => {
   if (isLoadingMore.value || !store.getters['users/getHasMore']) return
@@ -189,6 +185,7 @@ const handleScroll = (event) => {
 }
 
 const filteredUsers = computed(() => {
+  if (!users.value) return []
   // First filter out already selected users
   const unselectedUsers = users.value.filter(user => 
     !selectedUsers.value.some(selected => selected._id === user._id)
