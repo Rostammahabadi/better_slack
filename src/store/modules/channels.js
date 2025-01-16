@@ -130,7 +130,16 @@ const getters = {
   currentChannel: state => state.currentChannel,
   getChannelById: state => id => state.channels.find(channel => channel._id === id),
   sortedChannels: state => [...state.channels].sort((a, b) => a.name.localeCompare(b.name)),
-  getIsLoading: state => state.loading
+  getIsLoading: state => state.loading,
+  currentChannelUsers: (state, getters, rootState) => {
+    if (!state.currentChannel) return [];
+    
+    // Get all members from the current channel
+    const channelMembers = state.currentChannel.members || [];
+    
+    // Map member IDs to full user objects from the users module
+    return channelMembers.map(member => member.userId);
+  }
 };
 
 export default {

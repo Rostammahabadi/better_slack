@@ -10,6 +10,8 @@ const state = {
   sendingMessage: false,
   retryCount: 0,
   conversation: {},
+  botEnabledChannels: [], // Array of channel IDs where bot is enabled
+  botEnabledConversations: [], // Array of conversation IDs where bot is enabled
 }
 const mutations = {
   ADD_MESSAGE(state, message) {
@@ -35,6 +37,12 @@ const mutations = {
   },
   SET_CONVERSATION(state, conversation) {
     state.conversation = conversation;
+  },
+  SET_BOT_ENABLED_CHANNELS(state, channelIds) {
+    state.botEnabledChannels = channelIds;
+  },
+  SET_BOT_ENABLED_CONVERSATIONS(state, conversationIds) {
+    state.botEnabledConversations = conversationIds;
   }
 }
 const actions = {
@@ -87,12 +95,30 @@ const actions = {
     commit('SET_ACTIVE', false);
     commit('CLEAR_MESSAGES');
   },
+
+  async setBotMode({ commit }, { channelIds, conversationIds, enabled }) {
+    try {
+      const response = await api.post('/chatbot/mode', {
+        channelIds,
+        conversationIds,
+        enabled
+      });
+      return response.data;
+    } catch (error) {
+      dispatch('showToastError', error.message, { root: true });
+      throw error;
+    }
+  }
 }
 const getters = {
   isActive: state => state.isActive,
   messages: state => state.messages,
   lastMessage: state => state.messages[state.messages.length - 1],
-  loading: state => state.loading
+  loading: state => state.loading,
+  isBotEnabledForChannel: state => channelId => state.botEnabledChannels.includes(channelId),
+  isBotEnabledForConversation: state => conversationId => state.botEnabledConversations.includes(conversationId),
+  botEnabledChannels: state => state.botEnabledChannels,
+  botEnabledConversations: state => state.botEnabledConversations
 }
 
 

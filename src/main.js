@@ -58,6 +58,7 @@ const initAuth0 = async () => {
           timeoutInSeconds: 60,
           cacheMode: 'on'
         });
+        await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
 
         // Initialize auth state with token
         await store.dispatch('auth/initializeAuth', { 
@@ -65,8 +66,6 @@ const initAuth0 = async () => {
           token: token.access_token,
           expiresIn: token.expires_in 
         });
-        
-        connect(token.access_token);
         
         // Mount the app
         app.mount('#app');

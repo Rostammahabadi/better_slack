@@ -74,7 +74,7 @@
 
 
 <script setup>
-import { computed, onMounted, onUnmounted, watch, ref } from 'vue';
+import { computed, onMounted, onUnmounted, watch, ref, inject } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import WorkspaceLayout from '../components/workspace/WorkspaceLayout.vue';
@@ -83,6 +83,7 @@ import TextEditor from '../components/TextEditor.vue';
 import { useSocket } from '../services/socketService';
 import AddChannelUsersModal from '../components/modals/AddChannelUsersModal.vue';
 const store = useStore();
+const auth0 = inject('auth0');
 const {
   joinChannel,
   leaveChannel,
@@ -118,28 +119,24 @@ const error = computed(() =>
   store.getters['channels/error'] || 
   store.getters['messages/error']
 );
-const token = computed(() => store.getters['auth/token']);
+
 const currentUser = computed(() => store.getters['auth/currentUser']);
 // Initialize workspace data
 onMounted(async () => {
-  connect(localStorage.getItem('auth_token'));
   try {
     const workspaceId = route.params.workspaceId;
-    await store.dispatch('workspaces/fetchWorkspace', { 
-      workspaceId, 
-      token: token.value 
-    });
-
-    store.dispatch('workspaces/fetchWorkspaces', token.value);
+    const token = await auth0.getTokenSilently();
+    await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
     
-    // Fetch channels for the workspace
-    await store.dispatch('channels/fetchChannels', {
-      workspaceId,
-      token: token.value
-    });
+    // Fetch all data in parallel
+    await Promise.all([
+      store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
+      store.dispatch('channels/fetchChannels', { workspaceId, token }),
+      store.dispatch('conversations/fetchConversations')
+    ]);
 
-    // Fetch conversations for the workspace
-    await store.dispatch('conversations/fetchConversations');
+    // Only connect socket after all data is loaded
+    connect(token);
 
     // If there's a channelId in the route, set it as current and fetch messages
     if (route.params.channelId) {
@@ -147,7 +144,7 @@ onMounted(async () => {
       if (channel) {
         await store.dispatch('messages/fetchChannelMessages', {
           channelId: channel._id,
-          token: token.value
+          token
         });
         store.dispatch('channels/setCurrentChannel', {
           channel: store.getters['channels/getChannelById'](route.params.channelId),
@@ -198,10 +195,11 @@ watch(() => route.params.channelId, async (newChannel, oldChannel) => {
     joinChannel(newChannel, currentUser.value);
     
     if (newChannel !== oldChannel) {
-      const channel = store.getters['channels/getChannelById'](newChannel);   
+      const channel = store.getters['channels/getChannelById'](newChannel);
+      const token = await auth0.getTokenSilently();   
       await store.dispatch('messages/fetchChannelMessages', {
         channelId: newChannel,
-        token: token.value,
+        token,
         limit: 30
       });
     }
@@ -229,13 +227,14 @@ watch(() => route.params.conversationId, async (newConversationId, oldConversati
     sendConversationConnected(newConversationId, currentUser.value);
     
     try {
+      const token = await auth0.getTokenSilently();
       // First fetch the conversation details
       await store.dispatch('conversations/fetchConversation', newConversationId);
       
       // Then fetch messages
       await store.dispatch('messages/fetchConversationMessages', {
         conversationId: newConversationId,
-        token: token.value,
+        token,
         limit: 30
       });
     } catch (error) {
@@ -253,17 +252,12 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
         leaveChannel(currentChannel.value._id);
       }
 
-      // Fetch workspace data
-      await store.dispatch('workspaces/fetchWorkspace', {
-        workspaceId: newWorkspaceId,
-        token: token.value
-      });
-
-      // Fetch channels for the new workspace
-      await store.dispatch('channels/fetchChannels', {
-        workspaceId: newWorkspaceId,
-        token: token.value
-      });
+      const token = await auth0.getTokenSilently();
+      // Fetch all data in parallel for new workspace
+      await Promise.all([
+        store.dispatch('channels/fetchChannels', { workspaceId: newWorkspaceId, token }),
+        store.dispatch('conversations/fetchConversations')
+      ]);
 
       // Clear current channel and messages when switching workspaces
       store.dispatch('channels/setCurrentChannel', { channel: null });

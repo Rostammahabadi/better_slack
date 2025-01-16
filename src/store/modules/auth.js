@@ -126,6 +126,7 @@ const actions = {
         timeoutInSeconds: 60,
         cacheMode: 'on'
       });
+      await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
       
       await commit('SET_TOKEN', { 
         token: token.access_token, 
@@ -137,6 +138,10 @@ const actions = {
       console.error('Token refresh error:', error);
       throw error;
     }
+  },
+
+  async setToken({ commit }, { token, expiresIn }) {
+    await commit('SET_TOKEN', { token, expiresIn });
   },
 
   async fetchUser({ commit }, token) {

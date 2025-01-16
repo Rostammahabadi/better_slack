@@ -1,3 +1,5 @@
+import { api } from '@/services/api';
+
 const state = {
   currentWorkspace: null,
   workspaces: [],
@@ -24,23 +26,12 @@ const mutations = {
 };
 
 const actions = {
-  async fetchWorkspace({ commit }, { workspaceId, token }) {
+  async fetchWorkspace({ commit }, { workspaceId }) {
     commit('SET_LOADING', true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces/${workspaceId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch workspace');
-      }
-
-      const workspace = await response.json();
-      commit('SET_CURRENT_WORKSPACE', workspace);
-      return workspace;
+      const workspace = await api.get(`/workspaces/${workspaceId}`);
+      commit('SET_CURRENT_WORKSPACE', workspace.data);
+      return workspace.data;
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;
@@ -52,13 +43,8 @@ const actions = {
   async fetchWorkspaces({ commit }, token) {
     commit('SET_LOADING', true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      const response = await api.get(`/workspaces`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch workspaces');
       }
@@ -77,13 +63,8 @@ const actions = {
   async inviteUsers({ commit }, { workspaceId, emails, token }) {
     commit('SET_LOADING', true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces/${workspaceId}/invites`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ emails })
+      const response = await api.post(`/workspaces/${workspaceId}/invites`, {
+        emails
       });
 
       if (!response.ok) {
@@ -104,13 +85,8 @@ const actions = {
   async createWorkspace({ commit }, { name, token }) {
     commit('SET_LOADING', true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/workspaces`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name })
+      const response = await api.post(`/workspaces`, {
+        name
       });
 
       if (!response.ok) {

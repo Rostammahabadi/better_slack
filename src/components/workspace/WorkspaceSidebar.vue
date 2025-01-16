@@ -247,18 +247,6 @@ const storeData = computed(() => ({
   workspace: store.getters['workspaces/currentWorkspace']
 }));
 
-// Watch for changes in workspace to update loading state
-watch(
-  () => storeData.value.workspace,
-  (newWorkspace) => {
-    if (newWorkspace && !isLoading.value) {
-      // Only update loading state if we're not waiting for other data
-      isLoading.value = false;
-    }
-  },
-  { immediate: true }
-);
-
 const selectChannel = async (channel) => {
   if (!channel?._id || !storeData.value.workspace?._id) return;
     

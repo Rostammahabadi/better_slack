@@ -19,7 +19,6 @@ onMounted(async () => {
   if (invitation) {
     // Store invitation in sessionStorage
     sessionStorage.setItem('invitation', invitation);
-    debugger
     // Redirect to Auth0 with invitation in state
     await auth0.loginWithRedirect({
       authorizationParams: {

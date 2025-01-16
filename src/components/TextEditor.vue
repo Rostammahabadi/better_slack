@@ -23,6 +23,7 @@
             rows="1"
             :placeholder="placeholder"
             class="text-input"
+            @input="handleInput"
             @keydown="handleKeyDown"
             @keydown.enter.prevent="handleSend"
             @keydown.enter.shift.exact="messageText += '\n'"
@@ -49,15 +50,48 @@
         </div>
       </div>
     </div>
+
+    <!-- User Mention Dropdown -->
+    <div v-if="showMentionDropdown" class="mention-dropdown">
+      <div class="mention-list">
+        <div 
+          v-for="user in channelUsers" 
+          :key="user._id"
+          class="mention-item"
+          :class="{ 'selected': selectedMentionIndex === user._id }"
+          @click="selectMention(user)"
+          @mouseenter="selectedMentionIndex = user._id"
+        >
+          <div class="user-avatar">
+            <img 
+              v-if="user.avatarUrl" 
+              :src="user.avatarUrl" 
+              :alt="user.displayName"
+              class="avatar-image"
+            />
+            <div v-else class="default-avatar">
+              {{ getInitials(user.displayName) }}
+            </div>
+          </div>
+          <div class="user-info">
+            <div class="display-name">{{ user.displayName }}</div>
+            <div class="username">{{ user.username }}</div>
+          </div>
+          <div class="user-status" v-if="user.isOnline">
+            <div class="status-indicator"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { 
   Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, 
-  Code, Quote, Plus, Type, Smile, AtSign, Image, Mic, PenTool
+  Code, Quote, Smile, AtSign, Image, Mic, PenTool
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -81,6 +115,28 @@ const replyToThread = ref(props.message?.threadId || null);
 const topRowIcons = [Bold, Italic, Strikethrough, Link, ListOrdered, List, AlignLeft, Code, Quote];
 
 const emit = defineEmits(['send-message', 'edit-message', 'cancel']);
+
+const showMentionDropdown = ref(false);
+const selectedMentionIndex = ref(null);
+const mentionStartIndex = ref(-1);
+
+const channelUsers = computed(() => {
+  const users = store.getters['channels/currentChannelUsers'] || [];
+  return users.map(user => ({
+    ...user,
+    isOnline: store.getters['users/isUserOnline'](user._id)
+  }));
+});
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 const handleCancel = () => {
   messageText.value = '';
@@ -295,6 +351,77 @@ const handleActionClick = async (actionType) => {
       break;
   }
 };
+
+const handleInput = (event) => {
+  const text = messageText.value;
+  const cursorPosition = event.target.selectionStart;
+
+  // Check for @ symbol
+  if (text[cursorPosition - 1] === '@') {
+    showMentionDropdown.value = true;
+    mentionStartIndex.value = cursorPosition - 1;
+    selectedMentionIndex.value = channelUsers.value[0]?._id;
+  } else if (showMentionDropdown.value) {
+    // Close dropdown if we're not in a mention context
+    const lastAtIndex = text.lastIndexOf('@', cursorPosition);
+    const textAfterAt = text.slice(lastAtIndex + 1, cursorPosition);
+    
+    if (lastAtIndex === -1 || cursorPosition - lastAtIndex > 30 || text[lastAtIndex - 1] === '@') {
+      showMentionDropdown.value = false;
+    }
+  }
+};
+
+const selectMention = (user) => {
+  const text = messageText.value;
+  const beforeMention = text.substring(0, mentionStartIndex.value);
+  const afterMention = text.substring(mentionStartIndex.value).replace(/^@\w*/, '');
+  
+  messageText.value = `${beforeMention}@${user.username}${afterMention}`;
+  
+  // Place cursor after the mention
+  nextTick(() => {
+    const textarea = document.querySelector('.text-input');
+    const cursorPosition = beforeMention.length + user.username.length + 1;
+    textarea.selectionStart = cursorPosition;
+    textarea.selectionEnd = cursorPosition;
+    textarea.focus();
+  });
+  
+  showMentionDropdown.value = false;
+};
+
+// Add click outside handler
+const handleClickOutside = (event) => {
+  const dropdown = document.querySelector('.mention-dropdown');
+  const textInput = document.querySelector('.text-input');
+  
+  if (showMentionDropdown.value && 
+      dropdown && 
+      !dropdown.contains(event.target) && 
+      !textInput.contains(event.target)) {
+    showMentionDropdown.value = false;
+  }
+};
+
+// Add event listeners on mount
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('keydown', handleKeydownGlobal);
+});
+
+// Handle global keydown events
+const handleKeydownGlobal = (e) => {
+  if (e.key === 'Escape' && showMentionDropdown.value) {
+    showMentionDropdown.value = false;
+  }
+};
+
+// Clean up event listeners
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('keydown', handleKeydownGlobal);
+});
 </script>
 
 <style scoped>
@@ -413,5 +540,124 @@ const handleActionClick = async (actionType) => {
   background-color: #238636;
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.mention-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  background-color: #1A1D21;
+  border: 1px solid #4B4B4B;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.mention-list {
+  padding: 4px 0;
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.mention-item:hover,
+.mention-item.selected {
+  background-color: #2C2D30;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  margin-right: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 100%;
+  height: 100%;
+  background-color: #4B4B4B;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.display-name {
+  color: #D1D2D3;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.username {
+  color: #9CA3AF;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-status {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #2EAC3E;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .mention-dropdown {
+    max-height: 200px;
+  }
+
+  .mention-item {
+    padding: 6px 8px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 8px;
+  }
+
+  .display-name {
+    font-size: 13px;
+  }
+
+  .username {
+    font-size: 11px;
+  }
 }
 </style>

@@ -26,6 +26,17 @@ export function useSocket(store) {
     socket.on('connect', () => {
       console.log('[Socket] Connected successfully', { socketId: socket.id });
       isConnected.value = true;
+      // Send initialization data after successful connection
+      const userId = store.getters['auth/currentUser']?._id;
+      const channels = store.getters['channels/channels'].map(channel => channel._id);
+      const conversations = store.getters['conversations/getConversations'].map(conv => conv._id);
+      
+      socket.emit('client:init', {
+        userId,
+        isBot: false,
+        channels,
+        conversations
+      });
     });
 
     socket.on('connect_error', (error) => {
@@ -162,8 +173,15 @@ export function useSocket(store) {
       store.dispatch('chatbot/setLoading', false);
     });
 
-    socket.on('bot:connect', ( message) => {
+    socket.on('bot:connect', (message) => {
       store.dispatch('chatbot/addMessage', message);
+    });
+
+    socket.on('bot:mode_updated', ({ channelIds, conversationIds, enabled }) => {
+      store.commit('chatbot/SET_BOT_ENABLED_CHANNELS', channelIds);
+      store.commit('chatbot/SET_BOT_ENABLED_CONVERSATIONS', conversationIds);
+      const status = enabled ? 'enabled' : 'disabled';
+      store.dispatch('showToastSuccess', `Bot mode ${status} for selected channels and conversations`, { root: true });
     });
 
     // Add handler for channel thread replies
@@ -174,6 +192,24 @@ export function useSocket(store) {
         reply 
       });
     });
+
+    // Add user presence events
+    socket.on('user:online', ({ userId }) => {
+      store.dispatch('users/setUserOnline', userId);
+    });
+
+    socket.on('user:offline', ({ userId }) => {
+      store.dispatch('users/setUserOffline', userId);
+    });
+
+    socket.on('users:initial_status', ({ onlineUsers }) => {
+      onlineUsers.forEach(userId => {
+        store.dispatch('users/setUserOnline', userId);
+      });
+    });
+
+    // Request initial user statuses
+    socket.emit('users:get_status');
   };
 
   const activateBot = (userId) => {
@@ -368,6 +404,11 @@ export function useSocket(store) {
     channelUsers.value = [];
   };
 
+  const setBotMode = ({ channelIds, conversationIds, enabled }) => {
+    if (!socket) return;
+    socket.emit('bot:set_mode', { channelIds, conversationIds, enabled });
+  };
+
   return {
     isConnected,
     channelUsers,
@@ -399,5 +440,6 @@ export function useSocket(store) {
     sendBotMessage,
     sendChannelReaction,
     sendAddedUsersToChannel,
+    setBotMode,
   };
 }

@@ -1,5 +1,7 @@
 Production ready application
 Adhere to Vue 3 best practices
+Always review your code after writing it to make sure it functions as expected
+All of the CSS you write should account for different screen sizes
 Never add a new file unless directed by the user
 The project uses a realtime socket connection to send and receive messages via the socketService.js file
 The project manages state with vuex and the store/modules/ files

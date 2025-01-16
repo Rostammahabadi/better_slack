@@ -1,128 +1,64 @@
 import { api } from '@/services/api'
 
 const state = {
-  searchResults: [],
-  isSearching: false,
-  searchError: null,
   users: [],
-  isLoading: false,
-  error: null,
-  nextCursor: null,
-  hasMore: true
-}
-
-const getters = {
-  getSearchResults: (state) => state.searchResults,
-  getIsSearching: (state) => state.isSearching,
-  getSearchError: (state) => state.searchError,
-  getUsers: (state) => state.users,
-  getIsLoading: (state) => state.isLoading,
-  getError: (state) => state.error,
-  getHasMore: (state) => state.hasMore,
-  getNextCursor: (state) => state.nextCursor
-}
-
-const actions = {
-  async fetchUsers({ commit, state }, { cursor = null, workspaceId } = {}) {
-    try {
-      commit('setIsLoading', true)
-      commit('setError', null)
-      
-      const response = await api.get('/users', {
-        params: { 
-          limit: 10,
-          cursor: cursor || state.nextCursor,
-          workspaceId
-        }
-      })
-      
-      const { users, nextCursor } = response.data
-      
-      if (cursor) {
-        commit('appendUsers', users)
-      } else {
-        commit('setUsers', users)
-      }
-      
-      commit('setNextCursor', nextCursor)
-      commit('setHasMore', !!nextCursor)
-      
-      return users
-    } catch (error) {
-      commit('setError', error.message)
-      throw error
-    } finally {
-      commit('setIsLoading', false)
-    }
-  },
-
-  async searchUsers({ commit }, query) {
-    try {
-      commit('setIsSearching', true)
-      commit('setSearchError', null)
-      
-      const response = await api.get('/users/search', {
-        params: { query }
-      })
-      
-      commit('setSearchResults', response.data)
-      return response.data
-    } catch (error) {
-      commit('setSearchError', error.message)
-      throw error
-    } finally {
-      commit('setIsSearching', false)
-    }
-  },
-
-  clearSearch({ commit }) {
-    commit('setSearchResults', [])
-    commit('setSearchError', null)
-  }
+  onlineUsers: new Set(), // Set of online user IDs
+  loading: false,
+  error: null
 }
 
 const mutations = {
-  setSearchResults(state, results) {
-    state.searchResults = results
+  SET_USERS(state, users) {
+    state.users = users;
   },
-
-  setIsSearching(state, isSearching) {
-    state.isSearching = isSearching
+  SET_USER_ONLINE(state, userId) {
+    state.onlineUsers.add(userId);
   },
-
-  setSearchError(state, error) {
-    state.searchError = error
+  SET_USER_OFFLINE(state, userId) {
+    state.onlineUsers.delete(userId);
   },
-
-  setUsers(state, users) {
-    state.users = users
+  SET_LOADING(state, loading) {
+    state.loading = loading;
   },
-
-  appendUsers(state, users) {
-    state.users = [...state.users, ...users]
-  },
-
-  setIsLoading(state, isLoading) {
-    state.isLoading = isLoading
-  },
-
-  setError(state, error) {
-    state.error = error
-  },
-
-  setNextCursor(state, cursor) {
-    state.nextCursor = cursor
-  },
-
-  setHasMore(state, hasMore) {
-    state.hasMore = hasMore
+  SET_ERROR(state, error) {
+    state.error = error;
   }
+}
+
+const actions = {
+  async fetchUsers({ commit }) {
+    try {
+      commit('SET_LOADING', true);
+      const response = await api.get('/users');
+      commit('SET_USERS', response.data);
+    } catch (error) {
+      commit('SET_ERROR', error.message);
+      throw error;
+    } finally {
+      commit('SET_LOADING', false);
+    }
+  },
+
+  setUserOnline({ commit }, userId) {
+    commit('SET_USER_ONLINE', userId);
+  },
+
+  setUserOffline({ commit }, userId) {
+    commit('SET_USER_OFFLINE', userId);
+  }
+}
+
+const getters = {
+  allUsers: state => state.users,
+  isUserOnline: state => userId => state.onlineUsers.has(userId),
+  getUserById: state => id => state.users.find(user => user._id === id),
+  getIsLoading: state => state.loading
 }
 
 export default {
   namespaced: true,
   state,
-  getters,
+  mutations,
   actions,
-  mutations
+  getters
 } 

@@ -12,8 +12,8 @@ export const api = axios.create({
 
 // Request interceptor for API calls
 api.interceptors.request.use(
-  config => {
-    const token = store.getters['auth/token']
+  async config => {
+    const token = store.getters['auth/token'];
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

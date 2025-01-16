@@ -19,17 +19,12 @@ const { connect } = useSocket(store);
 
 const handleCallback = async () => {
   try {
-    // Get the authentication result and appState
     const { appState } = await auth0.handleRedirectCallback();
-    
-    // Get the token silently
     const token = await auth0.getTokenSilently();
-
-    // Get the user data
     const user = await auth0.getUser();
     
-    // Connect socket with the new token
-    connect(token);
+    // Initialize auth state first
+    await store.dispatch('auth/initializeAuth', { token });
 
     if (appState?.inviteToken) {
       // Handle invite flow
@@ -38,22 +33,39 @@ const handleCallback = async () => {
         userId: user.sub
       });
       
-      // Initialize auth state with the new token
-      await store.dispatch('auth/initializeAuth', { token });
+      // Wait for workspace data to be loaded
+      const workspaceId = inviteResponse.workspaces[0]._id;
+      await Promise.all([
+        store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
+        store.dispatch('channels/fetchChannels', { workspaceId, token }),
+        store.dispatch('conversations/fetchConversations')
+      ]);
+      // Connect socket only after data is loaded
+      connect(token);
       
-      // Navigate to the workspace they were invited to
-      router.push(`/workspaces/${inviteResponse.workspaces[0]._id}`);
+      router.push(`/workspaces/${workspaceId}`);
     } else {
       // Regular login flow
-      await store.dispatch('auth/initializeAuth', { token });
-      
-      // Get the default workspace
       const defaultWorkspace = store.getters['auth/defaultWorkspace'];
       if (!defaultWorkspace) {
         throw new Error('No workspace available');
       }
+
+      // Wait for workspace data to be loaded
+      await Promise.all([
+        store.dispatch('workspaces/fetchWorkspace', { 
+          workspaceId: defaultWorkspace._id, 
+          token 
+        }),
+        store.dispatch('channels/fetchChannels', {
+          workspaceId: defaultWorkspace._id,
+          token
+        }),
+        store.dispatch('conversations/fetchConversations')
+      ]);
+      // Connect socket only after data is loaded
+      connect(token);
       
-      // Navigate to the default workspace
       router.push(`/workspaces/${defaultWorkspace._id}`);
     }
   } catch (error) {
