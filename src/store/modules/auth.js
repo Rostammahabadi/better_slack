@@ -6,6 +6,13 @@ const state = {
   error: null,
   defaultWorkspace: JSON.parse(localStorage.getItem('default_workspace')),
   status: 'active',
+  botMode: {
+    isEnabled: false,
+    autoReply: "I'm currently away but my AI assistant will help you.",
+    allowedChannels: [],
+    allowedConversations: [],
+    responseDelay: 1000
+  }
 };
 
 const mutations = {
@@ -59,6 +66,35 @@ const mutations = {
     localStorage.removeItem('token_expiry');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('default_workspace');
+  },
+  SET_AWAY_STATUS(state, { isAway, botConfig }) {
+    state.status = isAway ? 'away' : 'active';
+    if (botConfig) {
+      state.botMode = {
+        ...state.botMode,
+        ...botConfig
+      };
+    }
+    if (state.user) {
+      state.user.userPersonality = {
+        ...state.user.userPersonality,
+        botMode: state.botMode
+      };
+      localStorage.setItem('auth_user', JSON.stringify(state.user));
+    }
+  },
+  UPDATE_BOT_CONFIG(state, config) {
+    state.botMode = {
+      ...state.botMode,
+      ...config
+    };
+    if (state.user) {
+      state.user.userPersonality = {
+        ...state.user.userPersonality,
+        botMode: state.botMode
+      };
+      localStorage.setItem('auth_user', JSON.stringify(state.user));
+    }
   }
 };
 
@@ -168,6 +204,57 @@ const actions = {
 
   async logout({ commit, dispatch }) {
     commit('CLEAR_AUTH');
+  },
+
+  async setAwayStatus({ commit, state }, { isAway, botConfig }) {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/away`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isAway, botConfig })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update away status');
+      }
+
+      const data = await response.json();
+      commit('SET_AWAY_STATUS', { isAway, botConfig });
+      return data;
+    } catch (error) {
+      console.error('Failed to set away status:', error);
+      throw error;
+    }
+  },
+
+  async updateBotConfig({ commit, state }, config) {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/away`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          isAway: state.status === 'away',
+          botConfig: config
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update bot configuration');
+      }
+
+      const data = await response.json();
+      commit('UPDATE_BOT_CONFIG', config);
+      return data;
+    } catch (error) {
+      console.error('Failed to update bot config:', error);
+      throw error;
+    }
   }
 };
 
@@ -186,7 +273,17 @@ const getters = {
   error: state => state.error,
   defaultWorkspace: state => state.defaultWorkspace,
   tokenExpiry: state => state.tokenExpiry,
-  userStatus: state => state.status
+  userStatus: state => state.status,
+  userPersonality: state => state.user?.user?.userPersonality,
+  isAway: state => state.status === 'away',
+  botMode: state => state.botMode,
+  isBotEnabled: state => state.botMode.isEnabled,
+  isChannelBotEnabled: state => channelId => 
+    state.botMode.isEnabled && 
+    state.botMode.allowedChannels.includes(channelId),
+  isConversationBotEnabled: state => conversationId => 
+    state.botMode.isEnabled && 
+    state.botMode.allowedConversations.includes(conversationId)
 };
 
 export default {

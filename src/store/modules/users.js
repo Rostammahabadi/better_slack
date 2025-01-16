@@ -22,6 +22,18 @@ const mutations = {
   },
   SET_ERROR(state, error) {
     state.error = error;
+  },
+  SET_USER_AWAY(state, userId) {
+    const user = state.users.find(u => u._id === userId);
+    if (user) {
+      user.status = 'away';
+    }
+  },
+  SET_USER_ACTIVE(state, userId) {
+    const user = state.users.find(u => u._id === userId);
+    if (user) {
+      user.status = 'active';
+    }
   }
 }
 
@@ -46,6 +58,14 @@ const actions = {
 
   setUserOffline({ commit }, userId) {
     commit('SET_USER_OFFLINE', userId);
+  },
+
+  setUserAway({ commit }, userId) {
+    commit('SET_USER_AWAY', userId);
+  },
+
+  setUserActive({ commit }, userId) {
+    commit('SET_USER_ACTIVE', userId);
   }
 }
 
@@ -53,7 +73,11 @@ const getters = {
   allUsers: state => state.users,
   isUserOnline: state => userId => state.onlineUsers.has(userId),
   getUserById: state => id => state.users.find(user => user._id === id),
-  getIsLoading: state => state.loading
+  getIsLoading: state => state.loading,
+  isUserAway: state => userId => {
+    const user = state.users.find(u => u._id === userId);
+    return user?.status === 'away';
+  }
 }
 
 export default {

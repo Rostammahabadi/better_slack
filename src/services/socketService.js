@@ -20,22 +20,29 @@ export function useSocket(store) {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      query: {
+        userId: store.getters['auth/currentUser']?._id,
+        isBot: false,
+        channels: store.getters['channels/channels'].map(channel => channel._id),
+        conversations: store.getters['conversations/getConversations'].map(conv => conv._id),
+        userPersonality: JSON.stringify(store.getters['auth/userPersonality'])
+      }
     });
 
     // Connection events
     socket.on('connect', () => {
-      console.log('[Socket] Connected successfully', { socketId: socket.id });
       isConnected.value = true;
       // Send initialization data after successful connection
       const userId = store.getters['auth/currentUser']?._id;
       const channels = store.getters['channels/channels'].map(channel => channel._id);
       const conversations = store.getters['conversations/getConversations'].map(conv => conv._id);
-      
+      const userPersonality = store.getters['auth/userPersonality'];
       socket.emit('client:init', {
         userId,
         isBot: false,
         channels,
-        conversations
+        conversations,
+        userPersonality: JSON.stringify(userPersonality)
       });
     });
 
@@ -168,6 +175,7 @@ export function useSocket(store) {
       store.commit('messages/UPDATE_CONVERSATION_MESSAGE', { conversationId, messageId, content });
     });
 
+    // === BOT LISTENERS ===
     socket.on('bot:message', (message) => {
       store.dispatch('chatbot/addBotResponse', message);
       store.dispatch('chatbot/setLoading', false);
@@ -210,6 +218,14 @@ export function useSocket(store) {
 
     // Request initial user statuses
     socket.emit('users:get_status');
+
+    socket.on('bot:status_update', ({ userId, status }) => {
+      if (status === 'connected') {
+        store.dispatch('users/setUserAway', userId);
+      } else {
+        store.dispatch('users/setUserActive', userId);
+      }
+    });
   };
 
   const activateBot = (userId) => {
