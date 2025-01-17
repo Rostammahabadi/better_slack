@@ -45,6 +45,7 @@ const handleCallback = async () => {
         router.push(`/workspaces/${workspaceId}`);
       });
     } else {
+      await store.dispatch('workspaces/fetchWorkspaces', { token })
       // Regular login flow
       const defaultWorkspace = store.getters['auth/defaultWorkspace'];
       if (!defaultWorkspace) {
