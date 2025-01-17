@@ -256,13 +256,11 @@ watch(() => route.params.workspaceId, async (newWorkspaceId, oldWorkspaceId) => 
       const token = await auth0.getTokenSilently();
       // Fetch all data in parallel for new workspace
       await Promise.all([
+        store.dispatch('workspaces/fetchWorkspace', { workspaceId: newWorkspaceId, token }),
         store.dispatch('channels/fetchChannels', { workspaceId: newWorkspaceId, token }),
         store.dispatch('conversations/fetchConversations')
       ]);
-
-      // Clear current channel and messages when switching workspaces
-      store.dispatch('channels/setCurrentChannel', { channel: null });
-      store.commit('messages/SET_MESSAGES', { channelId: null, messages: [] });
+      store.dispatch('channels/clearCurrentChannel');
     } catch (error) {
       console.error('Error loading workspace:', error);
     }

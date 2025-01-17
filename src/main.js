@@ -58,11 +58,10 @@ const initAuth0 = async () => {
           timeoutInSeconds: 60,
           cacheMode: 'on'
         });
-        await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
-
+        await store.dispatch('auth/setToken', { token: token.access_token, expiresIn: 3600 });
+        await store.dispatch('workspaces/fetchWorkspaces');
         // Initialize auth state with token
-        await store.dispatch('auth/initializeAuth', { 
-          auth0, 
+        await store.dispatch('auth/initializeAuth', {
           token: token.access_token,
           expiresIn: token.expires_in 
         });

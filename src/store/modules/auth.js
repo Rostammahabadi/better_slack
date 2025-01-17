@@ -102,7 +102,7 @@ const mutations = {
 };
 
 const actions = {
-  async initializeAuth({ commit, dispatch }, { auth0, token, expiresIn }) {
+  async initializeAuth({ commit, dispatch }, { token, expiresIn }) {
     try {
       await commit('SET_LOADING', true);
       
@@ -127,6 +127,8 @@ const actions = {
           if (workspaces && workspaces.length > 0) {
             await commit('SET_DEFAULT_WORKSPACE', workspaces[0]);
             await commit('workspaces/SET_CURRENT_WORKSPACE', workspaces[0], { root: true });
+          } else {
+            await dispatch('workspaces/fetchWorkspaces');
           }
         }
       }
@@ -171,8 +173,8 @@ const actions = {
         timeoutInSeconds: 60,
         cacheMode: 'on'
       });
+      debugger
       await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
-      
       await commit('SET_TOKEN', { 
         token: token.access_token, 
         expiresIn: token.expires_in 

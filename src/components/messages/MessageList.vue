@@ -121,7 +121,6 @@ const {
   sendChannelReaction,
   sendConversationReaction,
   sendChannelReactionRemoved,
-  sendEditMessage,
   sendConversationReactionRemoved,
   sendConversationMessage,
   sendChannelMessage,
@@ -384,7 +383,7 @@ const handleAddReaction = async (emoji, messageId) => {
 
 const handleRemoveReaction = async (emoji, messageId) => {
   const message = hoveredMessage.value;
-  const currentUserId = store.state.auth.user.user._id;
+  const currentUserId = store.state.auth.user._id;
   const token = store.state.auth.token;
   
   if (hoveredMessage.value) {

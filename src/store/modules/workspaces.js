@@ -40,16 +40,15 @@ const actions = {
     }
   },
 
-  async fetchWorkspaces({ commit }, token) {
+  async fetchWorkspaces({ commit }) {
     commit('SET_LOADING', true);
     try {
       const response = await api.get(`/workspaces`);
-      
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error('Failed to fetch workspaces');
       }
 
-      const workspaces = await response.json();
+      const workspaces = response.data;
       commit('SET_WORKSPACES', workspaces);
       return workspaces;
     } catch (error) {
@@ -89,12 +88,12 @@ const actions = {
         name
       });
 
-      if (!response.ok) {
+      if (!response.status === 200) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to create workspace');
       }
 
-      const workspace = await response.json();
+      const workspace = response.data;
       commit('ADD_WORKSPACE', workspace);
       return workspace;
     } catch (error) {

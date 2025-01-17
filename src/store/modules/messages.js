@@ -588,7 +588,7 @@ const mutations = {
     if (messageIndex !== -1) {
       messages[messageIndex] = {
         ...messages[messageIndex],
-        ...message,
+        content: message,
         updatedAt: new Date().toISOString()
       };
     }

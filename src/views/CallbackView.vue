@@ -22,9 +22,8 @@ const handleCallback = async () => {
     const { appState } = await auth0.handleRedirectCallback();
     const token = await auth0.getTokenSilently();
     const user = await auth0.getUser();
-    
     // Initialize auth state first
-    await store.dispatch('auth/initializeAuth', { token });
+    await store.dispatch('auth/initializeAuth', { token: token });
 
     if (appState?.inviteToken) {
       // Handle invite flow
@@ -38,7 +37,8 @@ const handleCallback = async () => {
       await Promise.all([
         store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
         store.dispatch('channels/fetchChannels', { workspaceId, token }),
-        store.dispatch('conversations/fetchConversations')
+        store.dispatch('conversations/fetchConversations'),
+        store.dispatch('workspaces/fetchWorkspaces', { token })
       ]).then(() => {
         // Connect socket only after data is loaded
         connect(token);
@@ -82,6 +82,7 @@ handleCallback();
 <style scoped>
 .callback-container {
   height: 100vh;
+  width: 100vw;
   display: flex;
   justify-content: center;
   align-items: center;

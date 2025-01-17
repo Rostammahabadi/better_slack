@@ -179,7 +179,7 @@ const handleMainClick = () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize);
-  sendWorkspaceJoined(currentWorkspace.value, store.state.auth.user.user);
+  sendWorkspaceJoined(currentWorkspace.value._id, store.state.auth.user);
 });
 
 onUnmounted(() => {

@@ -21,11 +21,6 @@
             <img src="@/assets/google-icon.svg" alt="Google" />
             <span>Sign In With Google</span>
           </button>
-          
-          <button class="social-button apple-button">
-            <img src="@/assets/apple-icon.svg" alt="Apple" />
-            <span>Sign In With Apple</span>
-          </button>
         </div>
 
         <div class="divider">
@@ -104,11 +99,10 @@ onMounted(async () => {
 
         // Initialize auth state with token
         await store.dispatch('auth/initializeAuth', { 
-          auth0, 
           token: token.access_token,
           expiresIn: token.expires_in 
         });
-        
+
         // Get the default workspace and redirect
         const workspace = store.getters['auth/defaultWorkspace'];
         if (workspace?._id) {

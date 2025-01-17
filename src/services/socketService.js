@@ -311,11 +311,6 @@ export function useSocket(store) {
     socket.emit('conversation:reaction_removed', { messageId, reaction, conversationId });
   };
 
-  const sendEditMessage = (messageId, message, channelId) => {
-    if (!socket) return;
-    socket.emit('channel:edit_message', { messageId, message, channelId });
-  };
-
   const sendEditConversationMessage = (messageId, message, conversationId) => {
     if (!socket) return;
     socket.emit('conversation:edit_message', { messageId, message, conversationId });
@@ -397,22 +392,22 @@ export function useSocket(store) {
     socket.emit('channel:reaction', { messageId, reaction, channelId });
   };
 
-  const sendChannelMessageEdit = (channelId, messageId, content) => {
+  const sendChannelMessageEdit = (channelId, messageId, message) => {
     if (socket) {
       socket.emit('channel:edit_message', {
         channelId,
         messageId,
-        content
+        message
       });
     }
   };
 
-  const sendConversationMessageEdit = (conversationId, messageId, content) => {
+  const sendConversationMessageEdit = (conversationId, messageId, message) => {
     if (socket) {
       socket.emit('conversation:edit_message', {
         conversationId,
         messageId,
-        content
+        message
       });
     }
   };
@@ -457,7 +452,6 @@ export function useSocket(store) {
     sendChannelReactionRemoved,
     sendConversationReaction,
     sendConversationReactionRemoved,
-    sendEditMessage,
     sendEditConversationMessage,
     sendWorkspaceJoined,
     sendWorkspaceLeft,
