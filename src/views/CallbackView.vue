@@ -39,11 +39,11 @@ const handleCallback = async () => {
         store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
         store.dispatch('channels/fetchChannels', { workspaceId, token }),
         store.dispatch('conversations/fetchConversations')
-      ]);
-      // Connect socket only after data is loaded
-      connect(token);
-      
-      router.push(`/workspaces/${workspaceId}`);
+      ]).then(() => {
+        // Connect socket only after data is loaded
+        connect(token);
+        router.push(`/workspaces/${workspaceId}`);
+      });
     } else {
       // Regular login flow
       const defaultWorkspace = store.getters['auth/defaultWorkspace'];
@@ -54,19 +54,20 @@ const handleCallback = async () => {
       // Wait for workspace data to be loaded
       await Promise.all([
         store.dispatch('workspaces/fetchWorkspace', { 
-          workspaceId: defaultWorkspace._id, 
+          workspaceId: defaultWorkspace, 
           token 
         }),
         store.dispatch('channels/fetchChannels', {
-          workspaceId: defaultWorkspace._id,
+          workspaceId: defaultWorkspace,
           token
         }),
         store.dispatch('conversations/fetchConversations')
-      ]);
-      // Connect socket only after data is loaded
-      connect(token);
+      ]).then(() => {
+        // Connect socket only after data is loaded
+        connect(token);
+        router.push(`/workspaces/${defaultWorkspace}`);
+      });
       
-      router.push(`/workspaces/${defaultWorkspace._id}`);
     }
   } catch (error) {
     console.error('Callback error:', error);

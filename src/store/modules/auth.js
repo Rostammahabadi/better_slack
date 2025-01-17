@@ -123,7 +123,7 @@ const actions = {
         // If no stored data or token changed, fetch fresh user data
         const userData = await dispatch('fetchUser', token);
         if (userData) {
-          const workspaces = userData.workspace;
+          const workspaces = userData.user.workspaces;
           if (workspaces && workspaces.length > 0) {
             await commit('SET_DEFAULT_WORKSPACE', workspaces[0]);
             await commit('workspaces/SET_CURRENT_WORKSPACE', workspaces[0], { root: true });
