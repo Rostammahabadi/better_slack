@@ -44,8 +44,8 @@
         </div>
         <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
           <button 
-            v-for="reaction in message.reactions" 
-            :key="reaction._id" 
+            v-for="reaction in groupedReactions(message)" 
+            :key="reaction.emoji" 
             class="reaction"
             :class="{ 'reaction-active': hasUserReacted(reaction) }"
             @click="handleRemoveReaction(reaction.emoji, message._id)"
@@ -358,7 +358,7 @@ const handleSendMessage = async (messageData) => {
 
 const handleAddReaction = async (emoji, messageId) => {
   if (hoveredMessage.value) {
-    const message = hoveredMessage.value;
+    const message = hoveredMessage.value
     const token = store.state.auth.token;
     if (router.currentRoute.value.params.channelId) {
       const currentChannel = store.state.channels.currentChannel._id;
@@ -391,7 +391,10 @@ const handleRemoveReaction = async (emoji, messageId) => {
     const reaction = message.reactions.find(
       r => r.user === currentUserId && r.emoji === emoji
     );
-    
+    if (reaction == undefined) {
+      handleAddReaction(emoji, message._id);
+      return;
+    }
     if (router.currentRoute.value.params.channelId) {
       const currentChannel = store.state.channels.currentChannel._id;
       await store.dispatch('messages/removeChannelReaction', { 
@@ -422,8 +425,8 @@ const handleReply = () => {
 };
 
 const hasUserReacted = (reaction) => {
-  const currentUserId = store.state.auth.user.id;
-  return reaction.users?.includes(currentUserId);
+  const currentUserId = store.state.auth.user._id;
+  return reaction.users.has(currentUserId);
 };
 
 // Add thread-related computed and methods
@@ -537,6 +540,25 @@ const formatMessageContent = (content) => {
   // Parse markdown and sanitize HTML
   const rawHtml = marked.parse(content);
   return DOMPurify.sanitize(rawHtml);
+};
+
+const groupedReactions = (message) => {
+  if (!message.reactions || !message.reactions.length) return [];
+  
+  const groups = message.reactions.reduce((acc, reaction) => {
+    if (!acc[reaction.emoji]) {
+      acc[reaction.emoji] = {
+        emoji: reaction.emoji,
+        count: 0,
+        users: new Set()
+      };
+    }
+    acc[reaction.emoji].count++;
+    acc[reaction.emoji].users.add(reaction.user);
+    return acc;
+  }, {});
+  
+  return Object.values(groups);
 };
 </script>
 
