@@ -168,6 +168,12 @@ const handleSave = async () => {
         conversationIds: botConfig.value.allowedConversations,
         enabled: true
       });
+    } else {
+      setBotMode({
+        channelIds: [],
+        conversationIds: [],
+        enabled: false
+      });
     }
     
     emit('close');

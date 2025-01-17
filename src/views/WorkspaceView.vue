@@ -301,7 +301,6 @@ const sendBotMessage = async (messageData) => {
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
-
   try {
     if (currentChannel.value) {
       const messageResponse = await store.dispatch('messages/sendChannelMessage', {

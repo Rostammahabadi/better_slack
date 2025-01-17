@@ -224,6 +224,7 @@ const actions = {
       }
 
       const data = await response.json();
+      commit('SET_USER', data);
       commit('SET_AWAY_STATUS', { isAway, botConfig });
       return data;
     } catch (error) {
@@ -231,33 +232,6 @@ const actions = {
       throw error;
     }
   },
-
-  async updateBotConfig({ commit, state }, config) {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/away`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${state.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          isAway: state.status === 'away',
-          botConfig: config
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update bot configuration');
-      }
-
-      const data = await response.json();
-      commit('UPDATE_BOT_CONFIG', config);
-      return data;
-    } catch (error) {
-      console.error('Failed to update bot config:', error);
-      throw error;
-    }
-  }
 };
 
 const getters = {

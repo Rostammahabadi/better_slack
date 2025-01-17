@@ -561,6 +561,29 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   document.removeEventListener('keydown', handleKeydownGlobal);
 });
+
+const selectMention = (user) => {
+  const text = messageText.value;
+  const beforeMention = text.substring(0, mentionStartIndex.value);
+  const afterMention = text.substring(mentionStartIndex.value).replace(/^@\w*/, '');
+
+  // Replace with full user mention
+  messageText.value = `${beforeMention}@${user.displayName}${afterMention}`;
+
+  // Track the mentioned user
+  mentionedUsers.value.add(user._id);
+
+  // Move cursor
+  nextTick(() => {
+    const textarea = document.querySelector('.text-input');
+    const cursorPosition = beforeMention.length + user.displayName.length + 1;
+    textarea.selectionStart = cursorPosition;
+    textarea.selectionEnd = cursorPosition;
+    textarea.focus();
+  });
+
+  showMentionDropdown.value = false;
+};
 </script>
 
 <style scoped>
