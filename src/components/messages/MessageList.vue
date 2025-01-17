@@ -27,7 +27,7 @@
       </div>
       <div class="message-content">
         <div class="message-header">
-          <span class="username">{{ message.type === 'bot' ? 'Chatbot' : message.user?.displayName }}</span>
+          <span class="username">{{ message.user?.displayName || '' }}</span>
           <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
           <!-- <MessageStatus :status="message.status" /> -->
         </div>

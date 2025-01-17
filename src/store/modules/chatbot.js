@@ -47,19 +47,21 @@ const mutations = {
 }
 const actions = {
 
-  async addBotResponse({ commit }, message) {
-    commit('ADD_MESSAGE', {
-      _id: Date.now() + Math.random(),
-      ...message,
+  async addBotResponse({ commit, dispatch }, message) {
+    const saveMessage = {
+      user: '000000000000000000000000',
+      conversationId: state.conversation._id,
       type: 'bot',
-      sender: 'bot',
-      avatarUrl: '/images/bot.png',
-      user: {
-        displayName: 'Chatbot',
-        avatarUrl: '/images/bot.png'
-      },
-      timestamp: new Date().toISOString()
-    });
+      status: 'sent',
+      createdAt: new Date().toISOString(),
+      ...message
+    }
+    await dispatch('sendBotMessage', saveMessage);
+  },
+
+  async sendBotMessage({ commit }, message) {
+    const response = await api.post('/chatbot/message', message);
+    commit('ADD_MESSAGE', response.data);
   },
   
   async fetchConversation({ commit }, workspaceId) {
@@ -118,7 +120,8 @@ const getters = {
   isBotEnabledForChannel: state => channelId => state.botEnabledChannels.includes(channelId),
   isBotEnabledForConversation: state => conversationId => state.botEnabledConversations.includes(conversationId),
   botEnabledChannels: state => state.botEnabledChannels,
-  botEnabledConversations: state => state.botEnabledConversations
+  botEnabledConversations: state => state.botEnabledConversations,
+  getBotConversation: state => state.conversation
 }
 
 

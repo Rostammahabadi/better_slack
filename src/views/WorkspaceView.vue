@@ -113,7 +113,7 @@ const currentDirectMessage = computed(() => {
   }
   return null;
 });
-
+const chatBotConversation = computed(() => store.getters['chatbot/getBotConversation']);
 const error = computed(() => 
   store.getters['workspaces/error'] || 
   store.getters['channels/error'] || 
@@ -273,6 +273,7 @@ watch(() => route.name, async (newRouteName, oldRouteName) => {
     // Clear current channel and conversation
     store.dispatch('channels/clearCurrentChannel');
     store.commit('conversations/setCurrentConversation', null);
+    store.dispatch('chatbot/fetchConversation', currentWorkspace.value._id);
   }
 });
 
@@ -295,24 +296,24 @@ const sendMessage = async (messageData) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         type: 'channel',
-        attachments: messageData.attachments || []
       });
       sendChannelMessage(messageResponse);
     } else if (route.name === 'bot-conversation') {
       // Set loading state
       await store.dispatch('chatbot/setLoading', true);
-      
+
       // Create the message object
       const fullMessage = {
         content: messageData.content,
         user: currentUser.value._id,
+        conversationId: chatBotConversation.value._id,
         type: 'bot',
         status: 'sent',
         createdAt: new Date().toISOString()
       };
 
       // Add message to store and send via socket
-      await store.dispatch('chatbot/addMessage', fullMessage);
+      await store.dispatch('chatbot/sendBotMessage', fullMessage);
       sendBotMessage(messageData.content, currentUser.value._id, currentWorkspace.value._id);
     } else if (route.params.conversationId) {
       const messageResponse = await store.dispatch('messages/sendConversationMessage', {
