@@ -50,6 +50,7 @@ const actions = {
 
       const workspaces = response.data;
       commit('SET_WORKSPACES', workspaces);
+      commit('SET_CURRENT_WORKSPACE', workspaces[0]);
       return workspaces;
     } catch (error) {
       commit('SET_ERROR', error.message);
