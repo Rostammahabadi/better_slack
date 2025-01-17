@@ -57,6 +57,8 @@
         <TextEditor 
           @send-message="sendMessage" 
           @edit-message="editMessage"
+          @send-bot-message="sendBotMessage"
+          :type="route.name === 'bot-conversation' ? 'bot' : ''"
           :placeholder="getPlaceholder"
           :messages="messages"
         />
@@ -96,7 +98,7 @@ const {
   sendConversationConnected,
   sendConversationLeft,
   sendChannelMessageEdit,
-  sendBotMessage
+  sendRealtimeBotMessage
 } = useSocket(store);
 
 const route = useRoute();
@@ -277,6 +279,25 @@ watch(() => route.name, async (newRouteName, oldRouteName) => {
   }
 });
 
+const sendBotMessage = async (messageData) => {
+  // Set loading state
+  await store.dispatch('chatbot/setLoading', true);
+
+  // Create the message object
+  const fullMessage = {
+    content: messageData.content,
+    user: currentUser.value._id,
+    conversationId: chatBotConversation.value._id,
+    type: 'bot',
+    status: 'sent',
+    createdAt: new Date().toISOString()
+  };
+
+  // Add message to store and send via socket
+  await store.dispatch('chatbot/sendBotMessage', fullMessage);
+  sendRealtimeBotMessage(messageData.content, currentUser.value._id, currentWorkspace.value._id, messageData.mentionedChannels);
+};
+
 // Send message function
 const sendMessage = async (messageData) => {
   if (!messageData.content.trim()) return;
@@ -298,23 +319,6 @@ const sendMessage = async (messageData) => {
         type: 'channel',
       });
       sendChannelMessage(messageResponse);
-    } else if (route.name === 'bot-conversation') {
-      // Set loading state
-      await store.dispatch('chatbot/setLoading', true);
-
-      // Create the message object
-      const fullMessage = {
-        content: messageData.content,
-        user: currentUser.value._id,
-        conversationId: chatBotConversation.value._id,
-        type: 'bot',
-        status: 'sent',
-        createdAt: new Date().toISOString()
-      };
-
-      // Add message to store and send via socket
-      await store.dispatch('chatbot/sendBotMessage', fullMessage);
-      sendBotMessage(messageData.content, currentUser.value._id, currentWorkspace.value._id);
     } else if (route.params.conversationId) {
       const messageResponse = await store.dispatch('messages/sendConversationMessage', {
         conversationId: route.params.conversationId,

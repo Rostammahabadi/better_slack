@@ -242,9 +242,9 @@ export function useSocket(store) {
     socket.emit('channel:join', channelId, user._id);
   };
 
-  const sendBotMessage = (message, userId, workspaceId) => {
+  const sendRealtimeBotMessage = (message, userId, workspaceId, mentionedChannels) => {
     if (!socket) return;
-    socket.emit('bot:message', { message, userId, workspaceId });
+    socket.emit('bot:message', { message, userId, workspaceId, mentionedChannels });
   };
 
   const leaveChannel = (channelId) => {
@@ -461,7 +461,7 @@ export function useSocket(store) {
     sendConversationThreadReply,
     sendChannelCreated,
     activateBot,
-    sendBotMessage,
+    sendRealtimeBotMessage,
     sendChannelReaction,
     sendAddedUsersToChannel,
     setBotMode,

@@ -32,27 +32,31 @@ const handleCallback = async () => {
         userId: user.sub
       });
       
-      // Wait for workspace data to be loaded
-      const workspaceId = inviteResponse.workspaces[0]._id;
+      // First fetch workspaces
+      await store.dispatch('workspaces/fetchWorkspaces');
+      const workspaceId = store.getters['workspaces/currentWorkspace']._id;
+      
+      // Then fetch other data in parallel
       await Promise.all([
-        store.dispatch('workspaces/fetchWorkspace', { workspaceId, token }),
+        store.dispatch('workspaces/fetchWorkspace', { workspaceId }),
         store.dispatch('channels/fetchChannels', { workspaceId, token }),
-        store.dispatch('conversations/fetchConversations'),
-        store.dispatch('workspaces/fetchWorkspaces', { token })
-      ]).then(() => {
-        // Connect socket only after data is loaded
-        connect(token);
-        router.push(`/workspaces/${workspaceId}`);
-      });
+        store.dispatch('conversations/fetchConversations')
+      ]);
+
+      // Connect socket only after all data is loaded
+      connect(token);
+      router.push(`/workspaces/${workspaceId}`);
     } else {
-      await store.dispatch('workspaces/fetchWorkspaces', { token })
       // Regular login flow
+      // First fetch workspaces
+      await store.dispatch('workspaces/fetchWorkspaces');
       const defaultWorkspace = store.getters['workspaces/currentWorkspace']._id;
+      
       if (!defaultWorkspace) {
         throw new Error('No workspace available');
       }
 
-      // Wait for workspace data to be loaded
+      // Then fetch other data in parallel
       await Promise.all([
         store.dispatch('workspaces/fetchWorkspace', { 
           workspaceId: defaultWorkspace, 
@@ -63,12 +67,11 @@ const handleCallback = async () => {
           token
         }),
         store.dispatch('conversations/fetchConversations')
-      ]).then(() => {
-        // Connect socket only after data is loaded
-        connect(token);
-        router.push(`/workspaces/${defaultWorkspace}`);
-      });
-      
+      ]);
+
+      // Connect socket only after all data is loaded
+      connect(token);
+      router.push(`/workspaces/${defaultWorkspace}`);
     }
   } catch (error) {
     console.error('Callback error:', error);

@@ -4,7 +4,8 @@ const state = {
   users: [],
   onlineUsers: new Set(), // Set of online user IDs
   loading: false,
-  error: null
+  error: null,
+  nextCursor: null
 }
 
 const mutations = {
@@ -34,16 +35,64 @@ const mutations = {
     if (user) {
       user.status = 'active';
     }
+  },
+  SET_NEXT_CURSOR(state, cursor) {
+    state.nextCursor = cursor;
+  },
+  APPEND_USERS(state, users) {
+    state.users = [...state.users, ...users];
   }
 }
 
 const actions = {
-  async fetchUsers({ commit }) {
+  async fetchUsers({ commit }, { cursor = null, workspaceId, search } = {}) {
     try {
       commit('SET_LOADING', true);
-      const response = await api.get('/users');
-      commit('SET_USERS', response.data);
-      return response.data;
+      const response = await api.get('/users', {
+        params: {
+          lastId: cursor,
+          workspaceId,
+          search,
+          limit: 20
+        }
+      });
+      
+      const { users } = response.data;
+      const nextCursor = users.length === 20 ? users[users.length - 1]._id : null;
+      
+      if (cursor) {
+        commit('APPEND_USERS', users);
+      } else {
+        commit('SET_USERS', users);
+      }
+      
+      commit('SET_NEXT_CURSOR', nextCursor);
+      return users;
+    } catch (error) {
+      commit('SET_ERROR', error.message);
+      throw error;
+    } finally {
+      commit('SET_LOADING', false);
+    }
+  },
+
+  async searchUsers({ commit }, { query, workspaceId }) {
+    try {
+      commit('SET_LOADING', true);
+      const response = await api.get('/users', {
+        params: {
+          search: query,
+          workspaceId,
+          limit: 20
+        }
+      });
+      
+      const { users } = response.data;
+      const nextCursor = users.length === 20 ? users[users.length - 1]._id : null;
+      
+      commit('SET_USERS', users);
+      commit('SET_NEXT_CURSOR', nextCursor);
+      return users;
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;

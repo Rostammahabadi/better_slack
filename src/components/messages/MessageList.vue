@@ -28,7 +28,10 @@
       <div class="message-content">
         <div class="message-header">
           <span class="username">{{ message.user?.displayName || '' }}</span>
-          <span class="timestamp">{{ formatTimestamp(message.createdAt) }}</span>
+          <span class="timestamp" :title="getFullTimestamp(message.createdAt)">
+            {{ formatTimestamp(message.createdAt) }}
+            <span v-if="message.edited" class="edited-indicator">(edited)</span>
+          </span>
           <!-- <MessageStatus :status="message.status" /> -->
         </div>
         <div v-if="editingMessageId === message._id" class="message-edit">
@@ -212,22 +215,37 @@ const formatTimestamp = (timestamp) => {
 
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
+  const isYesterday = new Date(now - 86400000).toDateString() === date.toDateString();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+  
+  const time = date.toLocaleTimeString([], { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
   
   if (isToday) {
-    return date.toLocaleTimeString([], { 
-      hour: 'numeric', 
+    return `Today at ${time}`;
+  } else if (isYesterday) {
+    return `Yesterday at ${time}`;
+  } else if (isThisYear) {
+    return date.toLocaleDateString([], { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
+    });
+  } else {
+    return date.toLocaleDateString([], { 
+      year: 'numeric',
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     });
   }
-  
-  return date.toLocaleDateString([], { 
-    month: 'short', 
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
 };
 
 const showMenuForMessage = (message) => {
@@ -560,6 +578,25 @@ const groupedReactions = (message) => {
   
   return Object.values(groups);
 };
+
+// Add new method for full timestamp tooltip
+const getFullTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+
+  return date.toLocaleString([], {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+};
 </script>
 
 <style scoped>
@@ -682,6 +719,28 @@ const groupedReactions = (message) => {
 .hljs {
   background: transparent !important;
   padding: 0 !important;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #9CA3AF;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.timestamp:hover {
+  background-color: rgba(156, 163, 175, 0.1);
+  color: #E5E7EB;
+}
+
+.edited-indicator {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-style: italic;
 }
 </style>
 

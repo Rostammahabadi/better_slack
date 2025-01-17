@@ -126,6 +126,7 @@ const users = ref([])
 const activeIndex = ref(-1)
 const isLoading = ref(false)
 const isLoadingMore = ref(false)
+const nextCursor = ref(null)
 
 const currentChannel = computed(() => store.getters['channels/getChannelById'](props.channelId));
 const channelName = computed(() => currentChannel.value?.name || '');
@@ -136,49 +137,61 @@ onMounted(async () => {
 
 const fetchInitialUsers = async () => {
   try {
-    isLoading.value = true
+    isLoading.value = true;
     const response = await store.dispatch('users/fetchUsers', { 
       workspaceId: store.state.workspaces.currentWorkspace._id
     });
     
-    // Filter out users who are already members of the channel
-    const existingMemberIds = new Set(currentChannel.value?.members?.map(member => member.userId.toString()));
-    users.value = response.filter(user => !existingMemberIds.has(user._id.toString()));
+    if (response && Array.isArray(response)) {
+      // Filter out users who are already members of the channel
+      const existingMemberIds = new Set(currentChannel.value?.members?.map(member => member.userId.toString()));
+      users.value = response.filter(user => !existingMemberIds.has(user._id.toString()));
+      nextCursor.value = response.nextCursor;
+    } else {
+      users.value = [];
+      nextCursor.value = null;
+    }
   } catch (error) {
-    console.error('Failed to fetch users:', error)
+    console.error('Failed to fetch users:', error);
+    users.value = [];
+    nextCursor.value = null;
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
 const loadMoreUsers = async () => {
-  if (isLoadingMore.value || !store.getters['users/getHasMore']) return
+  if (isLoadingMore.value || !nextCursor.value) return;
   
   try {
-    isLoadingMore.value = true
+    isLoadingMore.value = true;
     const response = await store.dispatch('users/fetchUsers', {
-      cursor: store.getters['users/getNextCursor']
+      cursor: nextCursor.value,
+      workspaceId: store.state.workspaces.currentWorkspace._id
     });
     
-    // Filter out users who are already members of the channel
-    const existingMemberIds = new Set(currentChannel.value?.members?.map(member => member.userId.toString()));
-    const newUsers = response.filter(user => !existingMemberIds.has(user._id.toString()));
-    users.value = [...users.value, ...newUsers];
+    if (response && Array.isArray(response)) {
+      // Filter out users who are already members of the channel
+      const existingMemberIds = new Set(currentChannel.value?.members?.map(member => member.userId.toString()));
+      const newUsers = response.filter(user => !existingMemberIds.has(user._id.toString()));
+      users.value = [...users.value, ...newUsers];
+      nextCursor.value = response.nextCursor;
+    }
   } catch (error) {
-    console.error('Failed to load more users:', error)
+    console.error('Failed to load more users:', error);
   } finally {
-    isLoadingMore.value = false
+    isLoadingMore.value = false;
   }
 }
 
 const handleSearch = debounce(async () => {
   if (!searchQuery.value) {
-    await fetchInitialUsers()
-    return
+    await fetchInitialUsers();
+    return;
   }
   
   try {
-    isLoading.value = true
+    isLoading.value = true;
     const response = await store.dispatch('users/searchUsers', {
       query: searchQuery.value,
       workspaceId: store.state.workspaces.currentWorkspace._id
@@ -187,12 +200,13 @@ const handleSearch = debounce(async () => {
     // Filter out users who are already members of the channel
     const existingMemberIds = new Set(currentChannel.value?.members?.map(member => member.userId.toString()));
     users.value = response.filter(user => !existingMemberIds.has(user._id.toString()));
+    nextCursor.value = null; // Reset cursor during search
   } catch (error) {
-    console.error('Failed to search users:', error)
+    console.error('Failed to search users:', error);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}, 300)
+}, 300);
 
 const filteredUsers = computed(() => {
   return users.value.filter(user => 
@@ -236,9 +250,10 @@ const handleEnter = () => {
 }
 
 const handleScroll = async (event) => {
-  const { scrollTop, scrollHeight, clientHeight } = event.target
-  if (scrollHeight - (scrollTop + clientHeight) < 50) {
-    await loadMoreUsers()
+  const { scrollTop, scrollHeight, clientHeight } = event.target;
+  // Load more when user scrolls to bottom (with 50px threshold)
+  if (scrollHeight - (scrollTop + clientHeight) < 50 && !isLoadingMore.value && nextCursor.value) {
+    await loadMoreUsers();
   }
 }
 

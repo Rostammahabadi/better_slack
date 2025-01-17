@@ -122,7 +122,6 @@ const actions = {
         
         // If no stored data or token changed, fetch fresh user data
         await dispatch('fetchUser', token);
-        await dispatch('workspaces/fetchWorkspaces');
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -165,7 +164,6 @@ const actions = {
         timeoutInSeconds: 60,
         cacheMode: 'on'
       });
-      debugger
       await store.dispatch('auth/setToken', { token, expiresIn: 3600 });
       await commit('SET_TOKEN', { 
         token: token.access_token, 

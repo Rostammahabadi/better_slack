@@ -90,6 +90,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Channel Mention Dropdown -->
+    <div v-if="showChannelDropdown" class="channel-dropdown">
+      <div class="channel-list">
+        <div 
+          v-for="channel in filteredChannels" 
+          :key="channel._id"
+          class="channel-item"
+          :class="{ 'selected': selectedChannelIndex === channel._id }"
+          @click="selectChannel(channel)"
+          @mouseenter="selectedChannelIndex = channel._id"
+        >
+          <div class="channel-info">
+            <div class="channel-name">
+              <span class="hash">#</span>
+              {{ channel.name }}
+            </div>
+            <div class="channel-description">{{ channel.description || 'No description' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -112,7 +134,12 @@ const props = defineProps({
     type: String,
     required: false,
     default: 'Message'
-  }
+  },
+  type: {
+    type: String,
+    required: false,
+    default: ''
+  },
 });
 
 // ========== VUEX & SOCKET SETUP ==========
@@ -184,7 +211,7 @@ const handleSend = () => {
       url: attachment.url,
       type: attachment.type,
       name: attachment.name
-    }))
+    })),
   };
 
   // Mention logic
@@ -217,14 +244,18 @@ const handleSend = () => {
   // Distinguish between editing vs sending
   if (props.message) {
     emit('edit-message', messageData);
+  } else if(props.type === 'bot') {
+    messageData.mentionedChannels = Array.from(mentionedChannels.value);
+    emit('send-bot-message', messageData)
   } else {
-    emit('send-message', messageData);
+      emit('send-message', messageData);
+    }
     // Reset
     messageText.value = '';
     attachments.value = [];
     replyToThread.value = null;
     mentionedUsers.value.clear();
-  }
+    mentionedChannels.value.clear();
 };
 
 const handlePaste = async (event) => {
@@ -331,6 +362,44 @@ const handleFormatClick = (formatType) => {
 };
 
 const handleKeyDown = (e) => {
+  // Handle channel dropdown navigation
+  if (showChannelDropdown.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const currentIndex = filteredChannels.value.findIndex(
+        channel => channel._id === selectedChannelIndex.value
+      );
+      const nextIndex = (currentIndex + 1) % filteredChannels.value.length;
+      selectedChannelIndex.value = filteredChannels.value[nextIndex]._id;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const currentIndex = filteredChannels.value.findIndex(
+        channel => channel._id === selectedChannelIndex.value
+      );
+      const prevIndex = currentIndex <= 0 ? filteredChannels.value.length - 1 : currentIndex - 1;
+      selectedChannelIndex.value = filteredChannels.value[prevIndex]._id;
+    } else if (e.key === 'Enter' && selectedChannelIndex.value) {
+      e.preventDefault();
+      const selectedChannel = filteredChannels.value.find(
+        channel => channel._id === selectedChannelIndex.value
+      );
+      if (selectedChannel) {
+        selectChannel(selectedChannel);
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (selectedChannelIndex.value) {
+        const selectedChannel = filteredChannels.value.find(
+          channel => channel._id === selectedChannelIndex.value
+        );
+        if (selectedChannel) {
+          selectChannel(selectedChannel);
+        }
+      }
+    }
+  }
+
+  // Handle existing keyboard shortcuts
   if (e.metaKey || e.ctrlKey) {
     switch (e.key) {
       case 'b':
@@ -372,6 +441,27 @@ const getFormatTooltip = (icon) => {
 };
 
 // ========== MENTIONS ==========
+const showChannelDropdown = ref(false);
+const channelSearchTerm = ref("");
+const channelStartIndex = ref(-1);
+const selectedChannelIndex = ref(null);
+const mentionedChannels = ref(new Set());
+
+// Add computed property for channels
+const channels = computed(() => store.getters['channels/channels'] || []);
+
+// Add computed property for filtered channels
+const filteredChannels = computed(() => {
+  const rawTerm = channelSearchTerm.value.replace(/^#/, '');
+  if (!rawTerm) return channels.value;
+
+  const lowerTerm = rawTerm.toLowerCase();
+  return channels.value.filter(channel =>
+    channel.name.toLowerCase().includes(lowerTerm)
+  );
+});
+
+// Modify handleInput to handle both @ and # mentions
 const handleInput = (event) => {
   const text = messageText.value;
   const cursorPosition = event.target.selectionStart;
@@ -379,63 +469,85 @@ const handleInput = (event) => {
   // Check for '@' symbol
   if (text[cursorPosition - 1] === '@') {
     showMentionDropdown.value = true;
+    showChannelDropdown.value = false;
     const afterAt = text.slice(mentionStartIndex.value + 1, cursorPosition);
     mentionSearchTerm.value = afterAt;
     mentionStartIndex.value = cursorPosition - 1;
-    selectedMentionIndex.value = channelUsers.value[0]?._id; // default selection
-  } else if (showMentionDropdown.value) {
-    // Possibly close mention dropdown
-    const afterAt = text.slice(mentionStartIndex.value + 1, cursorPosition);
-    mentionSearchTerm.value = afterAt;
-
-    // Optionally close dropdown if too long or empty
-    if (!afterAt.length || afterAt.length > 25) {
-      showMentionDropdown.value = false;
+    selectedMentionIndex.value = channelUsers.value[0]?._id;
+  } 
+  // Check for '#' symbol
+  else if (text[cursorPosition - 1] === '#') {
+    showChannelDropdown.value = true;
+    showMentionDropdown.value = false;
+    channelStartIndex.value = cursorPosition - 1;
+    const afterHash = text.slice(channelStartIndex.value + 1, cursorPosition);
+    channelSearchTerm.value = afterHash;
+    selectedChannelIndex.value = channels.value[0]?._id;
+  }
+  // Update search terms for active dropdowns
+  else {
+    if (showMentionDropdown.value) {
+      const afterAt = text.slice(mentionStartIndex.value + 1, cursorPosition);
+      mentionSearchTerm.value = afterAt;
+      if (!afterAt.length || afterAt.length > 25) {
+        showMentionDropdown.value = false;
+      }
+    } else if (showChannelDropdown.value) {
+      const afterHash = text.slice(channelStartIndex.value + 1, cursorPosition);
+      channelSearchTerm.value = afterHash;
+      if (!afterHash.length || afterHash.length > 25) {
+        showChannelDropdown.value = false;
+      }
     }
   }
 };
 
-const selectMention = (user) => {
+// Add selectChannel method
+const selectChannel = (channel) => {
   const text = messageText.value;
-  const beforeMention = text.substring(0, mentionStartIndex.value);
-  // Remove the partial mention text (like '@jo')
-  const afterMention = text.substring(mentionStartIndex.value).replace(/^@\w*/, '');
+  const beforeMention = text.substring(0, channelStartIndex.value);
+  const afterMention = text.substring(channelStartIndex.value).replace(/^#\w*/, '');
 
-  // Replace with full mention
-  messageText.value = `${beforeMention}@${user.username}${afterMention}`;
+  // Replace with full channel mention
+  messageText.value = `${beforeMention}#${channel.name}${afterMention}`;
 
-  // **IMPORTANT**: Track the mentioned user
-  mentionedUsers.value.add(user._id);
+  // Track the mentioned channel
+  mentionedChannels.value.add(channel._id);
 
   // Move cursor
   nextTick(() => {
     const textarea = document.querySelector('.text-input');
-    const cursorPosition = beforeMention.length + user.username.length + 1;
+    const cursorPosition = beforeMention.length + channel.name.length + 1;
     textarea.selectionStart = cursorPosition;
     textarea.selectionEnd = cursorPosition;
     textarea.focus();
   });
 
-  showMentionDropdown.value = false;
+  showChannelDropdown.value = false;
 };
 
-// ========== CLICK OUTSIDE / ESCAPE ==========
+// Modify handleClickOutside to handle both dropdowns
 const handleClickOutside = (event) => {
-  const dropdown = document.querySelector('.mention-dropdown');
+  const mentionDropdown = document.querySelector('.mention-dropdown');
+  const channelDropdown = document.querySelector('.channel-dropdown');
   const textInput = document.querySelector('.text-input');
+  
   if (
-    showMentionDropdown.value &&
-    dropdown &&
-    !dropdown.contains(event.target) &&
+    (showMentionDropdown.value || showChannelDropdown.value) &&
+    !mentionDropdown?.contains(event.target) &&
+    !channelDropdown?.contains(event.target) &&
     !textInput.contains(event.target)
   ) {
     showMentionDropdown.value = false;
+    showChannelDropdown.value = false;
   }
 };
 
+// Modify handleKeydownGlobal to handle both dropdowns
 const handleKeydownGlobal = (e) => {
-  if (e.key === 'Escape' && showMentionDropdown.value) {
+  if (e.key === 'Escape') {
     showMentionDropdown.value = false;
+    showChannelDropdown.value = false;
   }
 };
 
@@ -700,6 +812,84 @@ onUnmounted(() => {
   }
 
   .username {
+    font-size: 11px;
+  }
+}
+
+.channel-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  background-color: #1A1D21;
+  border: 1px solid #4B4B4B;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.channel-list {
+  padding: 4px 0;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.channel-item:hover,
+.channel-item.selected {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.channel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-name {
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hash {
+  color: #ABABAD;
+}
+
+.channel-description {
+  color: #A3A6AA;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .channel-dropdown {
+    max-height: 200px;
+  }
+
+  .channel-item {
+    padding: 6px 8px;
+  }
+
+  .channel-name {
+    font-size: 13px;
+  }
+
+  .channel-description {
     font-size: 11px;
   }
 }
