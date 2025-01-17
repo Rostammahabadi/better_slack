@@ -47,7 +47,7 @@ const handleCallback = async () => {
     } else {
       await store.dispatch('workspaces/fetchWorkspaces', { token })
       // Regular login flow
-      const defaultWorkspace = store.getters['auth/defaultWorkspace'];
+      const defaultWorkspace = store.getters['workspaces/currentWorkspace'];
       if (!defaultWorkspace) {
         throw new Error('No workspace available');
       }
