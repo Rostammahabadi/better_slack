@@ -147,26 +147,65 @@ const handleSubmit = async () => {
 }
 
 .modal-header {
-  padding: 20px 28px;
-  border-bottom: 1px solid #4B4B4B;
+  padding: 24px 28px;
+  border-bottom: 1px solid rgba(75, 75, 75, 0.5);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: linear-gradient(180deg, rgba(26, 29, 33, 0.8) 0%, #1A1D21 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: relative;
 }
 
 .modal-header h2 {
   color: #FFFFFF;
-  font-size: 22px;
+  font-size: 20px;
+  font-weight: 600;
   margin: 0;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header h2::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 24px;
+  background: #1264A3;
+  border-radius: 2px;
+  margin-right: 4px;
 }
 
 .close-button {
   background: none;
   border: none;
-  color: #ABABAD;
+  color: #9CA3AF;
   font-size: 24px;
   cursor: pointer;
-  padding: 0;
+  padding: 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+
+.close-button:active {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: scale(0.95);
 }
 
 .modal-body {
@@ -203,22 +242,60 @@ const handleSubmit = async () => {
 
 .invite-button {
   width: 100%;
-  padding: 12px;
-  background-color: #007A5A;
+  padding: 12px 24px;
+  background-color: #1264A3;
   color: white;
   border: none;
-  border-radius: 4px;
-  font-weight: 500;
+  border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
   font-size: 15px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .invite-button:disabled {
-  background-color: #4B4B4B;
+  background-color: #2C2D30;
+  color: #9CA3AF;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .invite-button:not(:disabled):hover {
-  background-color: #006c4f;
+  background-color: #0F528A;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.invite-button:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Add a subtle loading state */
+.invite-button:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.invite-button:not(:disabled):active::after {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
 }
 </style> 

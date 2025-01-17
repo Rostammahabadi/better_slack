@@ -513,22 +513,59 @@ const isChannelAdmin = (channel) => {
 
 .invite-button {
   width: 100%;
-  padding: 8px 16px;
+  padding: 12px 24px;
   margin-top: 16px;
-  background: none;
-  border: 1px solid #4B4B4B;
-  border-radius: 4px;
-  color: #D1D2D3;
+  background-color: #1264A3;
+  border: none;
+  border-radius: 6px;
+  color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 0.2s;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.3px;
 }
 
 .invite-button:hover {
-  background-color: #27242C;
+  background-color: #0F528A;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.invite-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.invite-button i {
+  font-size: 16px;
+}
+
+/* Add a subtle loading state */
+.invite-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.invite-button:active::after {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
 }
 
 .last-message {
@@ -585,6 +622,13 @@ const isChannelAdmin = (channel) => {
     padding: 8px;
     min-width: 44px; /* Better touch target */
     min-height: 44px;
+  }
+
+  .invite-button {
+    padding: 10px 20px;
+    font-size: 14px;
+    margin: 12px 16px;
+    width: calc(100% - 32px);
   }
 }
 
