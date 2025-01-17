@@ -286,7 +286,7 @@ const getters = {
   tokenExpiry: state => state.tokenExpiry,
   userStatus: state => state.status,
   userPersonality: state => state.user?.user?.userPersonality,
-  isAway: state => state.status === 'away',
+  isAway: state => state.user.isAway,
   botMode: state => state.botMode,
   isBotEnabled: state => state.botMode.isEnabled,
   isChannelBotEnabled: state => channelId => 

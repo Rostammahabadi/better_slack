@@ -42,22 +42,6 @@
             class="search-results"
             @scroll="handleScroll"
           >
-          <button 
-              class="search-result-item bot-result"
-              @click="selectUser({displayName: 'Chatbot', id: 'chatbot', avatarUrl: '/images/bot.png'})"
-            >
-              <div class="user-avatar">
-                <img 
-                  src="/images/bot.png"
-                  alt="Bot"
-                  class="avatar-image"
-                />
-              </div>
-              <div class="user-info">
-                <div class="user-name">Chatbot</div>
-                <div class="user-email">AI Assistant</div>
-              </div>
-            </button>
             <div
               v-for="(user, index) in filteredUsers"
               :key="user._id"
