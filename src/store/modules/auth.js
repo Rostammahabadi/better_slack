@@ -121,10 +121,8 @@ const actions = {
         }
         
         // If no stored data or token changed, fetch fresh user data
-        const userData = await dispatch('fetchUser', token);
-        if (userData) {
-          await dispatch('workspaces/fetchWorkspaces', { token });
-        }
+        await dispatch('fetchUser', token);
+        await dispatch('workspaces/fetchWorkspaces');
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
