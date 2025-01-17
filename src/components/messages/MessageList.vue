@@ -85,6 +85,7 @@
           @menu-hover="cancelHideMenu"
           @menu-leave="startHideMenu"
           @edit="() => handleEdit(message)"
+          :is-owner="message.user?._id === store.state.auth.user?._id"
           class="hover-menu-bottom-right"
         />
       </div>
