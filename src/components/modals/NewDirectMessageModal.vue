@@ -137,7 +137,7 @@ onBeforeMount(async () => {
   try {
     isLoading.value = true
     const response = await store.dispatch('users/fetchUsers')
-    users.value = response.users
+    users.value = response
   } catch (error) {
     console.error('Failed to fetch users:', error)
   } finally {
